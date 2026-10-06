@@ -1,0 +1,17 @@
+# Course proposal materials — keep local, do not commit with the implementation
+rubberduck_proposal.tex
+# Keep the final presentation tracked for portability while the draft materials stay hidden.
+.info/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+rubberduck-eval.csv
+corpus/
