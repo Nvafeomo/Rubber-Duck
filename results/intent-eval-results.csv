@@ -1,0 +1,5 @@
+condition,case,bug_type,kind,bug_line,hit,flagged,n_flags,n_correct_flags,flag_lines,questions,latency_s,model
+with-intent,weekly_payroll,wrong_dict_key,bug,5,True,True,1,1,5,Should hours be retrieved from 'worked_hours' instead of 'scheduled_hours' to pay employees for the hours they actually worked?,14.295,gemini-3.5-flash-lite
+with-intent,weekly_payroll,wrong_dict_key,clean,5,False,False,0,0,,,16.616,gemini-3.5-flash-lite
+with-intent,order_revenue,wrong_dict_key,bug,6,True,True,1,1,6,Should this use paid_price instead of list_price to reflect what customers actually paid after discounts?,19.565,gemini-3.5-flash-lite
+with-intent,order_revenue,wrong_dict_key,clean,6,False,False,0,0,,,15.282,gemini-3.5-flash-lite

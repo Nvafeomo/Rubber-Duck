@@ -132,11 +132,17 @@ def _read_intent(interactive: bool) -> str:
             ) as console:
                 output.write("RubberDuck: what should this change do?\n> ")
                 output.flush()
-                return console.readline().strip()
+                answer = console.readline().strip()
+                output.write("\n")
+                output.flush()
+                return answer
         with open("/dev/tty", "r+", encoding="utf-8", errors="replace") as console:
             console.write("RubberDuck: what should this change do?\n> ")
             console.flush()
-            return console.readline().strip()
+            answer = console.readline().strip()
+            console.write("\n")
+            console.flush()
+            return answer
     except OSError:
         return ""
 
