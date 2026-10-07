@@ -1,4 +1,4 @@
-Read demo-tools/DEMO_RUNBOOK.md and the folder names in demo-tools/past-demos/. Then create a new RubberDuck demo on a topic that is not used there, such as a library checkout, a shopping cart, inventory restocking, payroll, a gym membership tracker, event ticketing, or a recipe scaler. Vary the domain and data shapes from earlier demos.
+Read demo-tools/DEMO_RUNBOOK.md and the folder names in demo-tools/past-demos/. Then create a new RubberDuck demo on a topic that does not appear in any past-demos folder name. Ideas include a shopping cart, inventory restocking, payroll, a gym membership tracker, event ticketing, a recipe scaler, or any similar everyday program; these are only examples, so skip any that were already used and feel free to invent your own. Never repeat a past topic, and vary the domain and data shapes from earlier demos.
 
 Write one readable Python program at demo/<topic>.py (a short snake_case name, for example demo/library_checkout.py). Aim for roughly 80-120 lines. It must run with `python <topic>.py`, use only the standard library, include realistic sample data, and print a useful report. Organize it into a few straightforward functions.
 

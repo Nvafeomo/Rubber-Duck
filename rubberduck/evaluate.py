@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 import random
+import textwrap
+from dataclasses import replace
 from pathlib import Path
 
 from rubberduck.context import format_snippets, related_snippets
@@ -58,7 +60,7 @@ def discover_bugs(
             segment = "".join(file_lines[start - 1 : node.end_lineno])
             docstring = ast.get_docstring(node)
             for operator in OPERATORS:
-                mutation = apply_operator(segment, operator)
+                mutation = _mutate_segment(segment, operator)
                 if mutation is None:
                     continue
                 mutated_file = _splice(source, start, node.end_lineno, mutation.source)
@@ -118,6 +120,24 @@ def review_bug(
     )
     completion = client.complete(prompt)
     return _row(bug, kind, condition, completion.concerns, completion.usage, settings.model)
+
+
+def _mutate_segment(segment: str, operator: str):
+    """Mutate one function's source, including methods nested in a class.
+
+    A method's source is indented, which ``ast.parse`` rejects, so the segment is
+    dedented before mutating and the original indentation is restored after.
+    """
+    dedented = textwrap.dedent(segment)
+    if dedented == segment:
+        return apply_operator(segment, operator)
+    first = next((line for line in segment.splitlines() if line.strip()), "")
+    prefix = first[: len(first) - len(first.lstrip())]
+    mutation = apply_operator(dedented, operator)
+    if mutation is None:
+        return None
+    restored = textwrap.indent(mutation.source, prefix)
+    return replace(mutation, source=restored)
 
 
 def unique_functions(bugs: list[SeededBug]) -> list[SeededBug]:

@@ -174,6 +174,8 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         print("Re-run with --yes to make those calls.")
         return 2
     load_env_file(repo)
+    # The corpus is someone else's repo, so also read the .env where eval was launched.
+    load_env_file(Path.cwd())
     settings = _settings(args.model, 400)
     try:
         client = GeminiReviewer(settings.model, settings.fallback_models)
