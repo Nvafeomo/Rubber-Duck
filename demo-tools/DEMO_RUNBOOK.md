@@ -120,8 +120,8 @@ a new one.
   project-root `.env`; it copies that file into `demo/`. Never paste the key
   into the coding-agent prompt or the answer key.
 - **Gemini is busy (503 UNAVAILABLE, 429, or a timeout):** RubberDuck retries
-  twice, then tries each model in `RUBBERDUCK_FALLBACK_MODELS` from `.env`
-  (currently `gemini-3.5-flash-lite,gemini-flash-lite-latest`). Retry messages
+  once (each attempt waits up to 20 seconds), then tries each model in `RUBBERDUCK_FALLBACK_MODELS` from `.env`
+  (currently `gemini-flash-lite-latest,gemini-3.8-flash`). Retry messages
   appear in the terminal; let them finish. If it still fails, the commit is
   blocked and nothing needs resetting: wait a minute and run `git commit` again.
   The free tier allows only a few requests per minute per model, so avoid

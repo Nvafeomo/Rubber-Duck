@@ -4,7 +4,7 @@ from rubberduck.cli import _settings
 def test_settings_use_current_flash_default(monkeypatch):
     monkeypatch.delenv("RUBBERDUCK_MODEL", raising=False)
 
-    assert _settings(None, 400).model == "gemini-3.8-flash"
+    assert _settings(None, 400).model == "gemini-3.5-flash-lite"
 
 
 def test_settings_allow_model_override(monkeypatch):

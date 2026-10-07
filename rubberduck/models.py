@@ -11,7 +11,7 @@ class Settings:
     max_scope_lines: int = 200
     max_snippets: int = 6
     max_snippet_lines: int = 40
-    model: str = "gemini-3.8-flash"
+    model: str = "gemini-3.5-flash-lite"
     fallback_models: tuple[str, ...] = ()
 
 

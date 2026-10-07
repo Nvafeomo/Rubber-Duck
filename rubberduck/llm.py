@@ -36,8 +36,8 @@ class TransientReviewError(ReviewError):
 _TRANSIENT_CODES = {408, 429, 500, 502, 503, 504}
 _TRANSIENT_MARKERS = ("UNAVAILABLE", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED", "overloaded", "timed out")
 _NETWORK_ERRORS = ("Timeout", "TransportError", "NetworkError", "ConnectError")
-_RETRY_DELAYS_S = (2.0, 5.0)
-_TIMEOUT_MS = 30_000
+_RETRY_DELAYS_S = (2.0,)
+_TIMEOUT_MS = 20_000
 
 
 def load_env_file(repo: Path) -> None:
@@ -130,6 +130,10 @@ class GeminiReviewer:
             "response_mime_type": "application/json",
             "response_schema": ReviewSchema,
         }
+        afc = getattr(types, "AutomaticFunctionCallingConfig", None)
+        if afc is not None:
+            # No tools are passed; disabling AFC also silences the SDK's AFC warning.
+            config_kwargs["automatic_function_calling"] = afc(disable=True)
         if _model_major(model) >= 3:
             thinking = getattr(types, "ThinkingConfig", None)
             if thinking is not None:
