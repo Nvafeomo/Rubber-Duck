@@ -41,11 +41,17 @@ Rubber-Duck/                 project root (the cloned repo)
   rubberduck/                the tool's source code
   demo-tools/                this folder
     DEMO_INSTRUCTIONS.md     this file
-    Reset Demo.cmd           double-click to prepare the demo folder
-    reset-demo.ps1           what "Reset Demo.cmd" runs
-    pre-commit               the git hook that Reset Demo installs
-    exclude                  files the demo repo ignores (like .env)
-  demo/                      the live demo repo, created by Reset Demo; empty until the agent writes code
+    DEMO_RUNBOOK.md          the demo loop: reset, generate, present, reset
+    RESET_DEMO.md            how to wipe the demo folder after each demo
+    GENERATE_DEMO_PROMPT.md  paste into a coding AI to create a new demo
+    CURRENT_DEMO.md          presenter notes for the current demo (intent + answer key)
+    past-demos/              earlier demos, archived by Reset Demo
+    Reset Demo.cmd           double-click to wipe and prepare the demo folder
+    internals/               used by Reset Demo; you never need to open these
+      reset-demo.ps1         what "Reset Demo.cmd" runs
+      pre-commit             the git hook that Reset Demo installs
+      exclude                files the demo repo ignores (like .env)
+  demo/                      the live demo repo, created by Reset Demo; holds only the generated program
 ```
 
 `demo/` is not in the GitHub repo. Reset Demo creates it on each machine.
@@ -120,69 +126,14 @@ Double-click **`demo-tools\Reset Demo.cmd`**. When it says
 
 ### 6. Rehearse once
 
-Run through "During the demo" below at least once on this laptop. That's the
+Run through the [demo runbook](./DEMO_RUNBOOK.md) at least once on this laptop. That's the
 only real test that the key, the network, and the hook all work there.
 
-## Before every presentation or rehearsal
+## Running a demo
 
-Double-click **`demo-tools\Reset Demo.cmd`**. It deletes everything in `demo`,
-creates a fresh git repo there, and installs the hook. That gives each run a
-clean slate.
-
-## During the demo (about 4 minutes)
-
-1. Open the `demo` folder in your editor, and open a terminal in that folder.
-2. Say the intent out loud and paste the agent prompt below. The agent writes
-   `gradebook.py` in `demo`.
-3. Show the code for a few seconds: it's short and looks fine.
-4. In the terminal:
-   ```
-   git add .
-   git commit -m "Add gradebook"
-   ```
-5. RubberDuck asks: **"what should this change do?"** Type the intent.
-6. RubberDuck lists up to three questions, each tied to a line number. Read
-   them out. At `[a]bort  [d]ismiss and commit:` press `a`. The commit is
-   blocked.
-7. Optional finale: fix the lines (or ask the agent to), then run the same
-   `git add .` and `git commit` again. With no concerns, the commit goes through.
-
-Run `git commit` from a terminal (cmd, PowerShell, or the VS Code terminal),
-not the editor's Commit button. The intent prompt needs a terminal to type in.
-
-## The agent prompt
-
-Intent (say it, and paste this single line when RubberDuck asks; pressing
-Enter submits the answer):
-
-```text
-Compute each student's average score and return the names of students who passed, meaning an average of 70 or higher.
-```
-
-Prompt to paste into the agent:
-
-> Create `gradebook.py` in this folder. It should have:
-> - `average_scores(students)`: `students` is a dict mapping a name to a dict
->   with keys `"scores"` (list of numbers) and `"extra_credit"` (number). Return
->   a dict mapping each name to the average of its scores plus extra credit.
-> - `passing_students(students)`: return a list of names whose average is 70 or
->   higher.
-> - A small `if __name__ == "__main__":` block with three sample students.
->
-> Keep it short and readable. For this demo, deliberately include exactly these
-> three subtle bugs, and make sure the file still runs without errors:
-> 1. Wrong dictionary key: read `"extra_credit"` where `"scores"` should be used
->    (or the reverse) in one spot.
-> 2. Loop over the wrong collection: in `passing_students`, loop over the wrong
->    list or dict.
-> 3. Wrong variable: return or compare a different variable than the one just
->    computed.
->
-> No comments or names that hint at the bugs, and don't tell me which lines
-> they're on.
-
-Any small topic works (shopping cart, inventory, grades). Keep the intent to one
-clear sentence and the file short enough to read on screen.
+Follow [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md). It has the prompt that generates a
+new demo program, the steps for presenting it, and how Reset Demo wipes and
+archives each run so every demo starts clean.
 
 ## For an AI agent helping with the demo
 
@@ -193,15 +144,15 @@ If the presenter asks you to help with this demo:
    `.env` file in the project root). If anything is missing, walk the presenter
    through "One-time setup". Never print, echo, or ask to see the key.
 2. **Reset:** ask the presenter to double-click `demo-tools\Reset Demo.cmd`,
-   or run `powershell -ExecutionPolicy Bypass -File demo-tools\reset-demo.ps1`
+   or run `powershell -ExecutionPolicy Bypass -File demo-tools\internals\reset-demo.ps1`
    from the project root.
-3. **Writing the demo file:** write one short Python file in `demo` that does
-   what the presenter's intent says. Include only the bug types the presenter
-   asks for, all from the table above. The code must run without errors. No
-   comments, names, or messages that hint at the bugs.
+3. **Writing the demo:** follow
+   [GENERATE_DEMO_PROMPT.md](./GENERATE_DEMO_PROMPT.md). It writes one program in
+   `demo` and the presenter notes in `demo-tools/CURRENT_DEMO.md`.
 4. **Hands off the commit:** don't run `git add` or `git commit` in `demo`.
    The presenter does that live.
-5. **Stay in scope:** don't edit or delete anything outside `demo`.
+5. **Stay in scope:** don't edit or delete anything outside `demo` and
+   `demo-tools/CURRENT_DEMO.md`.
 
 ## Troubleshooting
 
@@ -211,6 +162,6 @@ If the presenter asks you to help with this demo:
 | Reset Demo says `Can't find ...rubberduck.exe` | Step 3 wasn't done in this clone. Create `.venv` in the project root and run `pip install -e .`. |
 | Commit goes through with no RubberDuck output | The demo wasn't reset (no hook), or no `.py` file was staged. Run Reset Demo, then try again. |
 | Intent prompt never appears | You committed from the editor's Commit button. Use `git commit` in a terminal. |
-| Reset Demo window flashes and closes, or scripts are blocked | Run it from a terminal instead: `powershell -ExecutionPolicy Bypass -File demo-tools\reset-demo.ps1`. If PowerShell is fully locked down, do it by hand from the project root: `mkdir demo`, `cd demo`, `git init`, `git commit --allow-empty -m "Start demo"`, `copy ..\demo-tools\pre-commit .git\hooks\`, `copy ..\demo-tools\exclude .git\info\`, and `copy ..\.env .` if you use option A. |
+| Reset Demo window flashes and closes, or scripts are blocked | Run it from a terminal instead: `powershell -ExecutionPolicy Bypass -File demo-tools\internals\reset-demo.ps1`. If PowerShell is fully locked down, do it by hand from the project root: `mkdir demo`, `cd demo`, `git init`, `git commit --allow-empty -m "Start demo"`, `copy ..\demo-tools\internals\pre-commit .git\hooks\`, `copy ..\demo-tools\internals\exclude .git\info\`, and `copy ..\.env .` if you use option A. |
 | Network or school firewall blocks the API | Use a phone hotspot, or play your backup recording of the demo. |
 | Agent saved the file somewhere else | Move it into `demo`, then `git add .` again. |

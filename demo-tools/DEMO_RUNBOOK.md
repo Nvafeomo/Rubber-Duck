@@ -4,128 +4,115 @@ Use this guide for the live demo after the one-time setup is complete and the
 Gemini key is available. For installation or setup on another machine, see
 [DEMO_INSTRUCTIONS.md](./DEMO_INSTRUCTIONS.md).
 
+Every demo follows the same loop: **reset → generate → present → reset**.
+Each run gets a new program on a new topic, so no two demos are the same.
+
 ## Demo goal
 
-Ask a coding AI to create one substantial, readable Python program with three
-intentional logic bugs. Keep the bug answer key out of the demo repository.
-Stage and commit only the program, then show RubberDuck asking for your intent
-and raising questions about the staged code.
+A coding AI writes one readable Python program with three intentional logic
+bugs, one of each kind RubberDuck targets:
 
-## Before the demo
+| Bug kind | Example |
+|---|---|
+| Wrong dictionary key | `record["homework"]` where `record["exams"]` was meant |
+| Wrong collection in a loop | `for name in tutoring:` where every student was meant |
+| Wrong variable | `return top_average` where `top_student` was meant |
 
-1. From the Rubber-Duck project folder, run `demo-tools\Reset Demo.cmd`.
-   This recreates `demo/`, initializes its Git repository, installs the hook,
-   and copies the root `.env` into `demo/`. **It deletes everything currently
-   inside `demo/`**, so save anything you need first.
-2. Open `demo/` in your editor and open a terminal whose current directory is
-   `demo/`.
-3. Use the intent and coding-agent prompt below. The coding agent should write
-   the program in `demo/gradebook.py`. Put the answer key and any other
-   presenter-only demo materials in `demo-tools/`, not in `demo/`, so they are
-   easy to find and cannot be staged with the demo code. The answer key is for
-   the presenter; do not open or show it until after RubberDuck has run.
+You commit the program, RubberDuck asks for your intent, and it raises a
+line-specific question about each bug. The answer key stays outside the demo
+repository, so the review sees only the program.
 
-## Intent to tell the coding AI
+## Where things live
 
-Paste this as one line when RubberDuck asks for the intent (the prompt reads one
-line; pressing Enter submits it):
+| Path | What it is |
+|---|---|
+| `demo/` | The live demo repository. Holds only the generated program. Wiped by every reset. |
+| `demo-tools/RESET_DEMO.md` | How to wipe `demo/` after a demo (and what the reset does). |
+| `demo-tools/GENERATE_DEMO_PROMPT.md` | The prompt you paste into the coding AI to create a new demo. |
+| `demo-tools/CURRENT_DEMO.md` | Presenter notes for the current demo: program name, the one-line intent, and the answer key. Don't show it until after the review. |
+| `demo-tools/past-demos/` | One folder per finished demo (program plus notes). Reset fills it, and the coding AI reads it to pick a new topic. |
 
-```text
-Calculate each student's course average using 40% homework and 60% exam scores, then list every student whose average is at least 70%.
-```
+## 1. Reset
 
-Give the coding AI the same intent. Do not paste a multi-line paragraph into
-the terminal prompt; text after the first newline is treated as a new shell
-command.
+Follow [RESET_DEMO.md](./RESET_DEMO.md). In short: close any terminal inside
+`demo/`, double-click `demo-tools\Reset Demo.cmd`, and wait for **"Demo folder
+is ready and empty"**. The previous demo is archived to `past-demos/`, and
+`demo/` becomes a fresh, empty repository, so the next review considers only
+the new program.
 
-## Prompt for the coding AI
+## 2. Generate a new demo
 
-Paste this while the coding AI is working in the Rubber-Duck project. Ensure
-the project folder is its workspace, so it can create the answer key under
-`demo-tools/` as well as the program under `demo/`.
+Open the coding AI with the **Rubber-Duck project folder** as its workspace, so
+it can write to both `demo/` and `demo-tools/`. Then open
+[GENERATE_DEMO_PROMPT.md](./GENERATE_DEMO_PROMPT.md), copy all of it
+(Ctrl+A, Ctrl+C), and paste it into the coding AI unchanged.
 
-> Create a single, decent-sized but readable Python program at `demo/gradebook.py`
-> for a small course gradebook. Aim for roughly 80–120 lines. It should run
-> directly with `python gradebook.py`, include realistic sample data for at
-> least six students, and print a useful report. Organize it into a few
-> straightforward functions: calculate each student's average from homework
-> and exam scores, determine who passed a configurable threshold, summarize
-> course results, and print the report. Use only the Python standard library.
->
-> Deliberately seed exactly three subtle logic bugs, one of each kind:
-> 1. **Wrong dictionary key:** use a valid but incorrect score field (for
->    example, use homework scores where exam scores are intended). Both fields
->    must exist and have compatible values, so the program still runs.
-> 2. **Wrong collection in a loop:** iterate over a different, valid collection
->    than the function's purpose requires. Make the supplied data demonstrate
->    the resulting omission or incorrect inclusion, without raising an error.
-> 3. **Wrong variable:** use a different in-scope variable than the value just
->    computed in one calculation or return. Make this produce a plausible but
->    incorrect result, without raising an error.
->
-> Make each bug observable in the printed results, but keep the code syntactically
-> valid and free of runtime errors. Do not add comments, names, or output that
-> identify the bugs. Do not reveal the bugs in your response.
->
-> Also create `demo-tools/GRADEBOOK_ANSWER_KEY.md` for the presenter. In that
-> file only, describe the three seeded bugs, identify their functions and
-> relevant expressions (not guessed line numbers), explain the correct logic
-> and the visible effect in the sample output. Do not put the answer key in
-> `demo/`. Save any other presenter-only demo notes or materials under
-> `demo-tools/` as well. Do not print the answer key in chat, and do not stage
-> or commit anything.
+The prompt has the AI pick a topic that isn't in `past-demos/`, write the
+program to `demo/<topic>.py` with one bug of each kind, and write the intent and
+answer key to `demo-tools/CURRENT_DEMO.md`.
 
-## Live demo
+Then check the result without reading the answer key:
 
-1. Look over `demo/gradebook.py` without opening the answer key. Optionally run
-   `python gradebook.py` to show that it executes and prints a plausible report.
-2. In the terminal in `demo/`, stage and commit the program:
+- `demo/` contains exactly one `.py` file, and it runs: `python <topic>.py`.
+- `demo-tools/CURRENT_DEMO.md` exists and its intent is a single line.
+
+If either check fails, ask the coding AI to fix it, or reset and generate again.
+
+## 3. Present
+
+1. Open a terminal in `demo/`. Optionally run `python <topic>.py` to show that
+   the program runs and prints a plausible report.
+2. Stage and commit:
 
    ```powershell
-   git add gradebook.py
+   git add .
    git status --short
-   git commit -m "Add gradebook report"
+   git commit -m "Add demo program"
    ```
 
-   Confirm that `git status --short` lists only `gradebook.py` before
-   committing. Do not run `git add .` from the Rubber-Duck project root. The
-   answer key is outside the demo repository and must not be staged.
-3. At `RubberDuck: what should this change do?`, paste the intent above and
-   press Enter.
-4. Read RubberDuck's line-specific questions. At `[a]bort [d]dismiss and
-   commit:`, enter `a` to demonstrate that the commit is blocked.
-5. After the review, find `GRADEBOOK_ANSWER_KEY.md` in `demo-tools/` and
-   compare its notes with the reported concerns. Keep the answer key and any
-   other presenter-only demo materials in `demo-tools/`; they are not part of
-   the demo commit.
+   `git status --short` should list one line, `A  <topic>.py`. Because the reset
+   started a fresh repository, that file is the only thing RubberDuck reviews.
+3. At `RubberDuck: what should this change do?`, paste the **Intent** line
+   from `CURRENT_DEMO.md` and press Enter. Paste it as one line; text after a
+   newline is run as a separate shell command.
+4. RubberDuck lists up to three questions in the form *"Should it be [correct]
+   instead of [what the code has]?"*. Read them out.
+5. At `[a]bort  [d]ismiss and commit:`, type `a` and press Enter. The commit is
+   blocked and the program stays staged. Anything other than `d` also aborts.
+6. Open `CURRENT_DEMO.md` and compare the answer key with RubberDuck's
+   questions.
 
-Run `git commit` in the terminal, not the editor's Commit button, so the hook
-can prompt for input. If there are no staged `.py` changes, the hook has
-nothing to review.
+Run `git commit` in a terminal, not the editor's Commit button, so the hook can
+ask for the intent.
 
-## Reset between runs
+To repeat the same demo (for example, during a rehearsal), run the `git commit`
+command again. Aborting leaves everything staged, so no reset is needed. Leave
+about a minute between runs to stay under the free-tier rate limit.
 
-Run `demo-tools\Reset Demo.cmd` again to get a clean demo repository. This
-clears `demo/`, but leaves `demo-tools/GRADEBOOK_ANSWER_KEY.md` intact. Remove
-or update that answer key yourself if you want to preserve a record or generate
-a new one.
+## 4. Reset after the demo
+
+Run the reset again ([RESET_DEMO.md](./RESET_DEMO.md)). It also explains how to
+bring back an earlier demo from `past-demos/`.
 
 ## Troubleshooting
 
-- **No RubberDuck output:** confirm the terminal is in `demo/`, that
-  `gradebook.py` is staged, and that `demo/.git/hooks/pre-commit` exists.
+- **No RubberDuck output:** confirm the terminal is in `demo/`, that the
+  program is staged (`git status --short`), and that
+  `demo/.git/hooks/pre-commit` exists. If not, run Reset Demo.
 - **The intent prompt does not appear:** run `git commit` from a terminal
   instead of using the editor's Commit button.
 - **Missing API key:** rerun Reset Demo after confirming the key is in the
   project-root `.env`; it copies that file into `demo/`. Never paste the key
-  into the coding-agent prompt or the answer key.
+  into the coding-agent prompt or the presenter notes.
 - **Gemini is busy (503 UNAVAILABLE, 429, or a timeout):** RubberDuck retries
-  once (each attempt waits up to 20 seconds), then tries each model in `RUBBERDUCK_FALLBACK_MODELS` from `.env`
-  (currently `gemini-flash-lite-latest,gemini-3.8-flash`). Retry messages
-  appear in the terminal; let them finish. If it still fails, the commit is
-  blocked and nothing needs resetting: wait a minute and run `git commit` again.
-  The free tier allows only a few requests per minute per model, so avoid
-  repeated test commits right before presenting.
-- **A seeded bug is absent or the program crashes:** fix or regenerate the
-  program before staging it. The demonstration depends on exactly three
-  observable logic bugs and a successful program run.
+  once (each attempt waits up to 20 seconds), then tries each model in
+  `RUBBERDUCK_FALLBACK_MODELS` from `.env` (currently
+  `gemini-flash-lite-latest,gemini-3.8-flash`). Retry messages appear in the
+  terminal; let them finish. If it still fails, the commit is blocked and
+  nothing needs resetting: wait a minute and run `git commit` again.
+- **RubberDuck misses a bug or asks about something else:** the seeded bug may
+  be too subtle, or the intent may not mention the behavior it breaks. Check the
+  intent against the answer key, or reset and generate a new demo.
+- **A seeded bug is absent or the program crashes:** reset and generate again.
+  The demonstration depends on three observable logic bugs and a successful
+  program run.
