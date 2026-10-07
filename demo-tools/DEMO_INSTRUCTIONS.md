@@ -5,6 +5,9 @@ fresh school laptop. On a new machine, follow it top to bottom. If you are an
 AI agent helping with this demo, read the whole file, then follow
 "For an AI agent helping with the demo".
 
+If setup is already complete and you only need the live presentation steps,
+use the [demo-only runbook](./DEMO_RUNBOOK.md).
+
 ## What the demo shows
 
 1. The presenter states an intent and asks an AI coding agent to write a small,
@@ -149,10 +152,12 @@ not the editor's Commit button. The intent prompt needs a terminal to type in.
 
 ## The agent prompt
 
-Intent (say it, and type it again when RubberDuck asks):
+Intent (say it, and paste this single line when RubberDuck asks; pressing
+Enter submits the answer):
 
-> Compute each student's average score and return the names of students who
-> passed, meaning an average of 70 or higher.
+```text
+Compute each student's average score and return the names of students who passed, meaning an average of 70 or higher.
+```
 
 Prompt to paste into the agent:
 

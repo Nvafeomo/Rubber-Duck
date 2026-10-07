@@ -63,7 +63,7 @@ def _dispatch(argv: list[str] | None) -> int:
     review.add_argument("--dry-run", action="store_true", help="Print the prompt and do not call the model")
     review.add_argument("--no-input", action="store_true", help="Do not prompt. Block the commit if there are concerns.")
     review.add_argument("--pass-on-error", action="store_true", help="Allow the commit when git or the model call fails")
-    review.add_argument("--model", default=None, help="Gemini model id (default: gemini-2.5-flash or RUBBERDUCK_MODEL)")
+    review.add_argument("--model", default=None, help="Gemini model id (default: gemini-3.8-flash or RUBBERDUCK_MODEL)")
     review.add_argument("--max-file-lines", type=int, default=400, help="Send only the enclosing function above this size")
     review.set_defaults(func=_cmd_review)
 

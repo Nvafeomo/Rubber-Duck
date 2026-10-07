@@ -11,7 +11,7 @@ class Settings:
     max_scope_lines: int = 200
     max_snippets: int = 6
     max_snippet_lines: int = 40
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.8-flash"
 
 
 @dataclass(frozen=True)
