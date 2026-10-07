@@ -119,6 +119,13 @@ a new one.
 - **Missing API key:** rerun Reset Demo after confirming the key is in the
   project-root `.env`; it copies that file into `demo/`. Never paste the key
   into the coding-agent prompt or the answer key.
+- **Gemini is busy (503 UNAVAILABLE, 429, or a timeout):** RubberDuck retries
+  twice, then tries each model in `RUBBERDUCK_FALLBACK_MODELS` from `.env`
+  (currently `gemini-3.5-flash-lite,gemini-flash-lite-latest`). Retry messages
+  appear in the terminal; let them finish. If it still fails, the commit is
+  blocked and nothing needs resetting: wait a minute and run `git commit` again.
+  The free tier allows only a few requests per minute per model, so avoid
+  repeated test commits right before presenting.
 - **A seeded bug is absent or the program crashes:** fix or regenerate the
   program before staging it. The demonstration depends on exactly three
   observable logic bugs and a successful program run.

@@ -12,6 +12,7 @@ class Settings:
     max_snippets: int = 6
     max_snippet_lines: int = 40
     model: str = "gemini-3.8-flash"
+    fallback_models: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
-from typing import Protocol, TypedDict
+from typing import Callable, Protocol, TypedDict
 
 from rubberduck.models import Completion, Concern, Usage
 
@@ -26,6 +27,17 @@ class Reviewer(Protocol):
 
 class ReviewError(RuntimeError):
     pass
+
+
+class TransientReviewError(ReviewError):
+    """A model call failed in a way that is worth retrying (overload, rate limit, timeout)."""
+
+
+_TRANSIENT_CODES = {408, 429, 500, 502, 503, 504}
+_TRANSIENT_MARKERS = ("UNAVAILABLE", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED", "overloaded", "timed out")
+_NETWORK_ERRORS = ("Timeout", "TransportError", "NetworkError", "ConnectError")
+_RETRY_DELAYS_S = (2.0, 5.0)
+_TIMEOUT_MS = 30_000
 
 
 def load_env_file(repo: Path) -> None:
@@ -53,10 +65,23 @@ def api_key() -> str | None:
 
 
 class GeminiReviewer:
-    """One generateContent call. Retrieval stays outside the model."""
+    """One generateContent call. Retrieval stays outside the model.
 
-    def __init__(self, model: str) -> None:
+    Temporary failures (503 UNAVAILABLE, 429, timeouts) are retried with a short
+    backoff, then each fallback model is tried in turn.
+    """
+
+    def __init__(
+        self,
+        model: str,
+        fallbacks: tuple[str, ...] = (),
+        retry_delays: tuple[float, ...] = _RETRY_DELAYS_S,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.model = model
+        self.fallbacks = tuple(name for name in fallbacks if name and name != model)
+        self._retry_delays = retry_delays
+        self._sleep = sleep
         key = api_key()
         if not key:
             raise ReviewError(
@@ -68,9 +93,35 @@ class GeminiReviewer:
             raise ReviewError(
                 "The google-genai package is not installed. Run: pip install -e ."
             ) from exc
-        self._client = genai.Client(api_key=key)
+        try:
+            self._client = genai.Client(
+                api_key=key,
+                http_options=genai.types.HttpOptions(timeout=_TIMEOUT_MS),
+            )
+        except (AttributeError, TypeError):
+            self._client = genai.Client(api_key=key)
 
     def complete(self, prompt: str) -> Completion:
+        models = (self.model, *self.fallbacks)
+        last: TransientReviewError | None = None
+        for index, model in enumerate(models):
+            if index:
+                _notice(f"switching to fallback model {model}.")
+            for attempt in range(len(self._retry_delays) + 1):
+                try:
+                    return self._complete_with(model, prompt)
+                except TransientReviewError as exc:
+                    last = exc
+                    if attempt < len(self._retry_delays):
+                        delay = self._retry_delays[attempt]
+                        _notice(f"{model} is temporarily unavailable; retrying in {delay:g}s.")
+                        self._sleep(delay)
+        raise ReviewError(
+            f"Gemini stayed unavailable after retries ({', '.join(models)}). "
+            f"Wait a minute and run git commit again. Last error: {last}"
+        )
+
+    def _complete_with(self, model: str, prompt: str) -> Completion:
         from google.genai import types
 
         config_kwargs: dict = {
@@ -79,11 +130,11 @@ class GeminiReviewer:
             "response_mime_type": "application/json",
             "response_schema": ReviewSchema,
         }
-        if _model_major(self.model) >= 3:
+        if _model_major(model) >= 3:
             thinking = getattr(types, "ThinkingConfig", None)
             if thinking is not None:
                 config_kwargs["thinking_config"] = thinking(thinking_level="MINIMAL")
-        response, latency = self._generate(prompt, config_kwargs)
+        response, latency = self._generate(model, prompt, config_kwargs)
         text = getattr(response, "text", None) or ""
         if not text:
             raise ReviewError("The model returned an empty response.")
@@ -95,7 +146,7 @@ class GeminiReviewer:
         )
         return Completion(concerns=parse_concerns(text), usage=usage)
 
-    def _generate(self, prompt: str, config_kwargs: dict):
+    def _generate(self, model: str, prompt: str, config_kwargs: dict):
         from google.genai import types
 
         try:
@@ -106,16 +157,35 @@ class GeminiReviewer:
         started = time.perf_counter()
         try:
             response = self._client.models.generate_content(
-                model=self.model,
+                model=model,
                 contents=prompt,
                 config=config,
             )
         except Exception as exc:
             if "thinking_config" in config_kwargs and "thinking" in str(exc).lower():
                 reduced = {key: value for key, value in config_kwargs.items() if key != "thinking_config"}
-                return self._generate(prompt, reduced)
+                return self._generate(model, prompt, reduced)
+            if is_transient(exc):
+                raise TransientReviewError(str(exc)) from exc
             raise ReviewError(str(exc)) from exc
         return response, time.perf_counter() - started
+
+
+def is_transient(exc: BaseException) -> bool:
+    code = getattr(exc, "code", None)
+    if isinstance(code, int) and code in _TRANSIENT_CODES:
+        return True
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return True
+    # httpx/httpcore network failures do not subclass the builtin errors.
+    if any(marker in cls.__name__ for cls in type(exc).__mro__ for marker in _NETWORK_ERRORS):
+        return True
+    text = str(exc)
+    return any(marker.lower() in text.lower() for marker in _TRANSIENT_MARKERS)
+
+
+def _notice(message: str) -> None:
+    print(f"RubberDuck: {message}", file=sys.stderr, flush=True)
 
 
 def parse_concerns(payload: str) -> list[Concern]:

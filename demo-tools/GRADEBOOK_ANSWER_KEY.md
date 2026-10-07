@@ -7,6 +7,7 @@ The intended behavior is to calculate each student's course average using 40%
 homework and 60% exam scores, find every enrolled student at or above the 70%
 threshold, and report the student with the highest average.
 
+Calculate each student's course average using 40% homework and 60% exam scores, find every enrolled student at or above the 70% threshold, and report the student with the highest average.
 ## Seeded issues
 
 1. **Wrong dictionary key — `calculate_averages`:** The value assigned to

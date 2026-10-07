@@ -32,6 +32,7 @@ calls, so eval asks for --yes once that estimate passes 20.
 Environment:
   GEMINI_API_KEY or GOOGLE_API_KEY   model access
   RUBBERDUCK_MODEL                    overrides the default Flash model
+  RUBBERDUCK_FALLBACK_MODELS          comma-separated models to try if the main one is unavailable
   RUBBERDUCK_INTENT                   skip the intent prompt
   RUBBERDUCK_FORCE=1                  show concerns but allow the commit
 """
@@ -109,7 +110,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
     client = None
     if not args.dry_run:
         try:
-            client = GeminiReviewer(settings.model)
+            client = GeminiReviewer(settings.model, settings.fallback_models)
         except ReviewError as exc:
             print(f"RubberDuck: {exc}", file=sys.stderr)
             return 0 if args.pass_on_error else 1
@@ -175,7 +176,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     load_env_file(repo)
     settings = _settings(args.model, 400)
     try:
-        client = GeminiReviewer(settings.model)
+        client = GeminiReviewer(settings.model, settings.fallback_models)
     except ReviewError as exc:
         print(f"RubberDuck: {exc}", file=sys.stderr)
         return 1
@@ -251,4 +252,6 @@ def _write_report(rows: list[EvalRow], args: argparse.Namespace) -> None:
 
 def _settings(model: str | None, max_file_lines: int) -> Settings:
     chosen = model or os.environ.get("RUBBERDUCK_MODEL") or Settings().model
-    return Settings(max_file_lines=max_file_lines, model=chosen)
+    raw = os.environ.get("RUBBERDUCK_FALLBACK_MODELS", "")
+    fallbacks = tuple(part.strip() for part in raw.split(",") if part.strip())
+    return Settings(max_file_lines=max_file_lines, model=chosen, fallback_models=fallbacks)
