@@ -1,7 +1,10 @@
-# Course proposal materials — keep local, do not commit with the implementation
-rubberduck_proposal.tex
+# Presentation and proposal artifacts stay local to the machine
+*.pptx
+*.tex
 # Keep the final presentation tracked for portability while the draft materials stay hidden.
 .info/
+# Ignore temporary Office lock files created while opening PowerPoint
+~$*
 
 __pycache__/
 *.py[cod]
@@ -15,3 +18,6 @@ dist/
 build/
 rubberduck-eval.csv
 corpus/
+
+# Live demo repo, created on each machine by demo-tools/Reset Demo.cmd
+demo/

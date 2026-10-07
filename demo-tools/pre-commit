@@ -1,0 +1,4 @@
+#!/bin/sh
+# RubberDuck pre-commit hook. Git runs hooks from the demo folder, so the
+# project's virtual environment is one level up.
+exec ../.venv/Scripts/rubberduck.exe review
