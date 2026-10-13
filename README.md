@@ -101,7 +101,8 @@ RubberDuck also reads a `.env` file in the root of the repository being reviewed
 4. Type the intent when asked, then read the questions.
 
 Full steps, including setup on a new machine: [demo-tools/DEMO_INSTRUCTIONS.md](demo-tools/DEMO_INSTRUCTIONS.md).
-Two earlier demo programs and their notes are in `demo-tools/past-demos/`.
+Earlier demo programs, each with its intent and answer key, are in `demo-tools/past-demos/`
+(the payroll demo from the report is `2026-10-13_0010_payroll`).
 
 ### Option 2: any repository
 
@@ -113,6 +114,8 @@ exec rubberduck review
 ```
 
 (`rubberduck` must be on the PATH, for example by activating the virtual environment first.)
+If you use the [pre-commit](https://pre-commit.com/) framework, `.pre-commit-config.yaml` sets up
+the same hook.
 You can also run it by hand on staged files:
 
 ```
