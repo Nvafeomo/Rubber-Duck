@@ -24,6 +24,8 @@ include = ["rubberduck*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Hide a deprecation notice from inside the google-genai library (not from this project)
+filterwarnings = ["ignore::DeprecationWarning:google.genai.*"]
 
 [tool.ruff]
 line-length = 120
