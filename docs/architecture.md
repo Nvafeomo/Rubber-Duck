@@ -24,8 +24,8 @@ pre-commit hook  ->  rubberduck review
 commit blocked or allowed
 ```
 
-Steps 1 to 5 are deterministic Python. Only step 6 uses the model. This keeps the AI part
-small and makes every run get the same inputs, which matters for the evaluation.
+Everything except step 6 is regular Python code. Only step 6 calls the model, so the AI part
+stays small and every run gets the same inputs, which matters for the evaluation.
 
 ## Modules
 

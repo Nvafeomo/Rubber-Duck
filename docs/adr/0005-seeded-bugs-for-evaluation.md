@@ -20,6 +20,6 @@ can only be spotted if you know the intent, because both versions of the code lo
 
 ## Consequences
 
-- Ground truth for free, and runs are repeatable.
-- Seeded bugs can be easier to spot than real ones, so results may look better than real use.
+- We know exactly where each bug is, and runs can be repeated.
+- Seeded bugs can be easier to spot than real ones, so results may look better than they would in real use.
 - Docstrings are a weaker signal than a developer's own intent statement.
