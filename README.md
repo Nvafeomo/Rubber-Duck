@@ -192,8 +192,19 @@ as presented in class:
 | Code only (baseline) | 14/15 (0.93) | 0.88 | 2/15 | 0.88 s |
 
 Every condition caught 14 of 15 bugs, so on these bugs intent and context made no
-measurable difference. The one miss was the same dictionary key swap each time. The intent
-benchmark was added to test cases where the intent actually matters.
+measurable difference. The one miss was the same dictionary key swap each time.
+
+Intent benchmark (12 hand-written cases where the bug only shows up if you know the intent,
+each reviewed buggy and clean):
+
+| Condition | Recall | Precision | False alarms on clean code | Avg latency |
+|-----------|--------|-----------|----------------------------|-------------|
+| With intent | 12/12 | 0.92 | 1/12 | 0.96 s |
+| Code only | 5/12 | 0.42 | 4/12 | 0.77 s |
+
+With the intent, every bug type was caught 4 of 4 times. Without it, wrong dictionary keys and
+wrong variables were caught 2 of 4 times and wrong loop collections 1 of 4. Intent matters most
+for bugs where the code looks reasonable on its own. Raw rows are in `results/intent-eval-results.csv`.
 
 ## Known limitations
 
