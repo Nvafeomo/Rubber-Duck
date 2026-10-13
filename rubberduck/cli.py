@@ -79,7 +79,7 @@ def _dispatch(argv: list[str] | None) -> int:
     evaluate.add_argument("--repo", type=Path, required=True)
     evaluate.add_argument("--max-per-class", type=int, default=5, help="Bugs per class. The write-up target is 30 to 40.")
     evaluate.add_argument("--conditions", default=",".join(CONDITIONS))
-    evaluate.add_argument("--output", type=Path, default=Path("rubberduck-eval.csv"))
+    evaluate.add_argument("--output", type=Path, default=Path("results") / "tinydb-eval.csv")
     evaluate.add_argument("--seed", type=int, default=0)
     evaluate.add_argument("--include-tests", action="store_true")
     evaluate.add_argument("--no-clean", action="store_true", help="Skip untouched functions")

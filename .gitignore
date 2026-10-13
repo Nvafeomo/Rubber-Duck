@@ -16,7 +16,6 @@ venv/
 *.egg-info/
 dist/
 build/
-rubberduck-eval.csv
 corpus/
 
 # Live demo repo, created on each machine by demo-tools/Reset Demo.cmd

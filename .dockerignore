@@ -1,0 +1,12 @@
+.git
+.venv
+venv
+.env
+demo
+.info
+corpus
+results
+**/__pycache__
+*.egg-info
+*.pptx
+*.tex

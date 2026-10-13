@@ -1,0 +1,27 @@
+# Usage:
+#   docker compose run --rm tests          run the test suite (no API key needed)
+#   docker compose run --rm intent-eval    12-case intent benchmark (needs GEMINI_API_KEY)
+#   docker compose run --rm tinydb-eval    seeded-bug evaluation on TinyDB (needs GEMINI_API_KEY)
+# Results are written to ./results on your machine.
+
+services:
+  tests:
+    build: .
+    command: pytest -q
+
+  intent-eval:
+    build: .
+    env_file: .env
+    volumes:
+      - ./results:/app/results
+    command: python -m evaluation.run_intent_eval --pause 4
+
+  tinydb-eval:
+    build: .
+    env_file: .env
+    volumes:
+      - ./results:/app/results
+    command: >
+      sh -c "rubberduck fetch-corpus &&
+             rubberduck eval --repo corpus/tinydb --max-per-class 5 --pause 4 --yes
+             --output results/tinydb-eval.csv"
