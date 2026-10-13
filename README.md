@@ -182,7 +182,7 @@ docker compose run --rm intent-eval
 ## Results
 
 TinyDB seeded-bug evaluation (15 bugs, 5 per type, plus the same 15 functions left clean),
-as presented in class:
+as presented in class (see `results/README.md` about the raw rows):
 
 | Condition | Recall | Precision | False alarms on clean code | Avg latency |
 |-----------|--------|-----------|----------------------------|-------------|
@@ -205,6 +205,12 @@ each reviewed buggy and clean):
 With the intent, every bug type was caught 4 of 4 times. Without it, wrong dictionary keys and
 wrong variables were caught 2 of 4 times and wrong loop collections 1 of 4. Intent matters most
 for bugs where the code looks reasonable on its own. Raw rows are in `results/intent-eval-results.csv`.
+
+## Report and slides
+
+- Final report: [report/rubberduck_final_report.pdf](report/rubberduck_final_report.pdf)
+- Week 7 presentation: [report/rubberduck_final_presentation.pdf](report/rubberduck_final_presentation.pdf)
+- Evaluation output and notes: [results/](results/)
 
 ## Known limitations
 
