@@ -20,3 +20,6 @@ corpus/
 
 # Live demo repo, created on each machine by demo-tools/Reset Demo.cmd
 demo/
+
+# Report and slides are submitted on Canvas, not kept in the repo
+report/
