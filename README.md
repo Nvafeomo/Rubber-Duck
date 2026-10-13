@@ -206,12 +206,6 @@ With the intent, every bug type was caught 4 of 4 times. Without it, wrong dicti
 wrong variables were caught 2 of 4 times and wrong loop collections 1 of 4. Intent matters most
 for bugs where the code looks reasonable on its own. Raw rows are in `results/intent-eval-results.csv`.
 
-## Report and slides
-
-- Final report: [report/rubberduck_final_report.pdf](report/rubberduck_final_report.pdf)
-- Week 7 presentation: [report/rubberduck_final_presentation.pdf](report/rubberduck_final_presentation.pdf)
-- Evaluation output and notes: [results/](results/)
-
 ## Known limitations
 
 - Python only, terminal only.
