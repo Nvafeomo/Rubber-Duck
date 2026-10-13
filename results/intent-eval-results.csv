@@ -1,5 +1,49 @@
 condition,case,bug_type,kind,bug_line,hit,flagged,n_flags,n_correct_flags,flag_lines,questions,latency_s,model
-with-intent,weekly_payroll,wrong_dict_key,bug,5,True,True,1,1,5,Should hours be retrieved from 'worked_hours' instead of 'scheduled_hours' to pay employees for the hours they actually worked?,14.295,gemini-3.5-flash-lite
-with-intent,weekly_payroll,wrong_dict_key,clean,5,False,False,0,0,,,16.616,gemini-3.5-flash-lite
-with-intent,order_revenue,wrong_dict_key,bug,6,True,True,1,1,6,Should this use paid_price instead of list_price to reflect what customers actually paid after discounts?,19.565,gemini-3.5-flash-lite
-with-intent,order_revenue,wrong_dict_key,clean,6,False,False,0,0,,,15.282,gemini-3.5-flash-lite
+with-intent,weekly_payroll,wrong_dict_key,bug,5,True,True,1,1,5,"Should hours be retrieved from ""worked_hours"" instead of ""scheduled_hours""?",1.427,gemini-3.5-flash-lite
+with-intent,weekly_payroll,wrong_dict_key,clean,5,False,False,0,0,,,0.768,gemini-3.5-flash-lite
+with-intent,order_revenue,wrong_dict_key,bug,6,True,True,1,1,6,"Should this use item[""paid_price""] instead of item[""list_price""] to account for discounts?",0.697,gemini-3.5-flash-lite
+with-intent,order_revenue,wrong_dict_key,clean,6,False,False,0,0,,,1.578,gemini-3.5-flash-lite
+with-intent,course_grades,wrong_dict_key,bug,5,True,True,1,1,5,Did you mean to use 'exam_scores' instead of 'quiz_scores' to compute the grade from exam scores only?,0.701,gemini-3.5-flash-lite
+with-intent,course_grades,wrong_dict_key,clean,5,False,False,0,0,,,0.665,gemini-3.5-flash-lite
+with-intent,warehouse_restock,wrong_dict_key,bug,5,True,True,1,1,5,Should this check warehouse_qty instead of store_qty to match the warehouse restock intent?,0.874,gemini-3.5-flash-lite
+with-intent,warehouse_restock,wrong_dict_key,clean,5,False,False,0,0,,,0.77,gemini-3.5-flash-lite
+with-intent,membership_renewals,wrong_loop_collection,bug,4,True,True,1,1,4,Should this iterate over club['all_members'] instead of club['active_members'] to include paused members?,0.632,gemini-3.5-flash-lite
+with-intent,membership_renewals,wrong_loop_collection,clean,4,False,False,0,0,,,0.501,gemini-3.5-flash-lite
+with-intent,sprint_hours,wrong_loop_collection,bug,4,True,True,1,1,4,"Should this loop iterate over sprint[""tasks""] instead of sprint[""open""] to calculate the total estimated hours for every task?",0.779,gemini-3.5-flash-lite
+with-intent,sprint_hours,wrong_loop_collection,clean,4,False,False,0,0,,,0.733,gemini-3.5-flash-lite
+with-intent,attendance_awards,wrong_loop_collection,bug,4,True,True,1,1,4,Should this loop iterate over roster instead of honor_roll to check all students on the class roster?,0.649,gemini-3.5-flash-lite
+with-intent,attendance_awards,wrong_loop_collection,clean,4,False,False,0,0,,,0.701,gemini-3.5-flash-lite
+with-intent,unpaid_invoices,wrong_loop_collection,bug,4,True,True,1,1,4,Should this loop over customers instead of vip_customers to include all accounts with unpaid invoices?,0.699,gemini-3.5-flash-lite
+with-intent,unpaid_invoices,wrong_loop_collection,clean,4,False,False,0,0,,,0.777,gemini-3.5-flash-lite
+with-intent,library_late_fees,wrong_variable,bug,5,True,True,1,1,5,Should the penalty condition check days_late against grace_days instead of days_out against grace_days?,0.648,gemini-3.5-flash-lite
+with-intent,library_late_fees,wrong_variable,clean,5,False,False,0,0,,,0.625,gemini-3.5-flash-lite
+with-intent,free_shipping,wrong_variable,bug,5,True,True,1,1,5,Should free shipping be determined by the total including tax instead of the subtotal?,0.618,gemini-3.5-flash-lite
+with-intent,free_shipping,wrong_variable,clean,5,False,True,1,0,6,"Does total already include subtotal and tax, making total + shipping add the subtotal a second time in amount_due?",0.755,gemini-3.5-flash-lite
+with-intent,player_rankings,wrong_variable,bug,8,True,True,1,1,8,Should rows be sorted by average (index 1) instead of total (index 2) to rank players by points per game?,3.316,gemini-3.5-flash-lite
+with-intent,player_rankings,wrong_variable,clean,8,False,False,0,0,,,1.182,gemini-3.5-flash-lite
+with-intent,heat_alerts,wrong_variable,bug,7,True,True,1,1,7,Should the alert check the high temperature instead of the low temperature?,1.826,gemini-3.5-flash-lite
+with-intent,heat_alerts,wrong_variable,clean,7,False,False,0,0,,,0.999,gemini-3.5-flash-lite
+code-only,weekly_payroll,wrong_dict_key,bug,5,True,True,1,1,5,Should hours be computed from worked_hours instead of scheduled_hours?,0.69,gemini-3.5-flash-lite
+code-only,weekly_payroll,wrong_dict_key,clean,5,False,False,0,0,,,0.692,gemini-3.5-flash-lite
+code-only,order_revenue,wrong_dict_key,bug,6,True,True,1,1,6,Should revenue be calculated using paid_price instead of list_price?,0.81,gemini-3.5-flash-lite
+code-only,order_revenue,wrong_dict_key,clean,6,False,False,0,0,,,0.484,gemini-3.5-flash-lite
+code-only,course_grades,wrong_dict_key,bug,5,False,False,0,0,,,0.682,gemini-3.5-flash-lite
+code-only,course_grades,wrong_dict_key,clean,5,False,False,0,0,,,0.628,gemini-3.5-flash-lite
+code-only,warehouse_restock,wrong_dict_key,bug,5,False,False,0,0,,,0.683,gemini-3.5-flash-lite
+code-only,warehouse_restock,wrong_dict_key,clean,5,False,False,0,0,,,0.682,gemini-3.5-flash-lite
+code-only,membership_renewals,wrong_loop_collection,bug,4,False,False,0,0,,,0.723,gemini-3.5-flash-lite
+code-only,membership_renewals,wrong_loop_collection,clean,4,False,True,1,0,4,Should this loop over 'active_members' instead of 'all_members' to exclude paused members like ada@example.com?,0.694,gemini-3.5-flash-lite
+code-only,sprint_hours,wrong_loop_collection,bug,4,False,True,1,0,5,Should this iterate over sprint['tasks'] instead of sprint['open'] to calculate the total hours of all tasks?,0.906,gemini-3.5-flash-lite
+code-only,sprint_hours,wrong_loop_collection,clean,4,False,False,0,0,,,0.681,gemini-3.5-flash-lite
+code-only,attendance_awards,wrong_loop_collection,bug,4,True,True,1,1,4,Should this loop iterate over roster instead of honor_roll?,0.615,gemini-3.5-flash-lite
+code-only,attendance_awards,wrong_loop_collection,clean,4,False,False,0,0,,,1.648,gemini-3.5-flash-lite
+code-only,unpaid_invoices,wrong_loop_collection,bug,4,False,False,0,0,,,0.765,gemini-3.5-flash-lite
+code-only,unpaid_invoices,wrong_loop_collection,clean,4,False,True,1,0,1,"The parameter vip_customers is passed to overdue_notices, but should it be used instead of customers or to filter them?",0.839,gemini-3.5-flash-lite
+code-only,library_late_fees,wrong_variable,bug,5,True,True,2,1,4;5,Should charge be calculated using days_late instead of days_out? | Should the grace period check be based on days_late instead of days_out?,0.795,gemini-3.5-flash-lite
+code-only,library_late_fees,wrong_variable,clean,5,False,True,1,0,4,Should charge be calculated using days_late instead of days_out for the base rate?,0.737,gemini-3.5-flash-lite
+code-only,free_shipping,wrong_variable,bug,5,False,True,1,0,6,"Should the amount due include the shipping cost by adding total and shipping, given that total already excludes shipping?",0.857,gemini-3.5-flash-lite
+code-only,free_shipping,wrong_variable,clean,5,False,True,1,0,6,Does amount_due include shipping twice since total already excludes it?,0.664,gemini-3.5-flash-lite
+code-only,player_rankings,wrong_variable,bug,8,False,False,0,0,,,0.545,gemini-3.5-flash-lite
+code-only,player_rankings,wrong_variable,clean,8,False,False,0,0,,,1.369,gemini-3.5-flash-lite
+code-only,heat_alerts,wrong_variable,bug,7,True,True,1,1,7,Should the alert condition be based on the high temperature instead of the low temperature?,0.675,gemini-3.5-flash-lite
+code-only,heat_alerts,wrong_variable,clean,7,False,False,0,0,,,0.588,gemini-3.5-flash-lite
