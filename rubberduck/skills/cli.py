@@ -157,12 +157,12 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
 def _cmd_seed(args: argparse.Namespace) -> int:
     from rubberduck.skills.benchmark import load_cases
-    from rubberduck.skills.seed import VARIANTS, seed_case
+    from rubberduck.skills.seed import ALL_VARIANTS, VARIANTS, seed_case
 
     variants = tuple(v.strip() for v in args.variants.split(",")) if args.variants else VARIANTS
-    unknown = [v for v in variants if v not in VARIANTS]
+    unknown = [v for v in variants if v not in ALL_VARIANTS]
     if unknown:
-        print(f"Unknown variants: {', '.join(unknown)}. Choose from {', '.join(VARIANTS)}", file=sys.stderr)
+        print(f"Unknown variants: {', '.join(unknown)}. Choose from {', '.join(ALL_VARIANTS)}", file=sys.stderr)
         return 1
     bases = [case for case in load_cases(args.bench) if case.origin == "real" and case.aligned]
     if not bases:
@@ -172,7 +172,7 @@ def _cmd_seed(args: argparse.Namespace) -> int:
     for case in bases:
         for case_id, outcome in seed_case(case, args.bench, variants, args.seed):
             print(f"{case_id}: {outcome}")
-            made += outcome in VARIANTS
+            made += outcome in ALL_VARIANTS
     print(f"\n{made} seeded case(s) written.")
     return 0
 

@@ -113,7 +113,16 @@ planted problem each, labeled automatically:
 | `undeclared_process` | Silently changes the global git credential setting |
 | `unimplemented_claim` | Adds a claim to SKILL.md that no code backs up |
 | `divergent_doc_swap` | Changes a detail in a claim (JSON to YAML, ascending to descending) |
-| `divergent_code_mutation` | RubberDuck's original bug seeding (wrong variable, key, or loop) |
+| `divergent_code_semantic` | Changes the code so it contradicts a specific claim but still runs and looks normal: flips a result sort, makes a folder search recursive, or quietly handles only the first 3 items of a loop |
+
+`bug_code_mutation` (RubberDuck's original wrong-variable/key/loop seeding) is
+still available with `--variants bug_code_mutation`, but it is not seeded by
+default. Those bugs break the code on their own, so a model can catch them
+without reading the docs, and they are bugs rather than doc-code divergence.
+
+Seeded semantic edits are matched to a claim by keywords, so read a sample of
+them (`label.json` notes say what changed) and delete any where the claim
+isn't really about the edited code. Say in the paper how many you checked.
 
 The planted network code points at a `.invalid` domain, which can never
 resolve, so nothing is ever sent.

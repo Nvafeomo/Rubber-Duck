@@ -19,7 +19,7 @@ from rubberduck.skills.benchmark import Case, Misalignment, draft_label, load_ca
 from rubberduck.skills.claims import extract_claims
 from rubberduck.skills.evaluate import run, score, summarize
 from rubberduck.skills.loader import load_skill, split_frontmatter
-from rubberduck.skills.seed import VARIANTS, seed_case
+from rubberduck.skills.seed import ALL_VARIANTS, seed_case
 
 FIXTURES = Path(__file__).parent / "fixtures" / "skills"
 LEAKY = FIXTURES / "csv-to-json"
@@ -165,7 +165,7 @@ def test_validate_label_catches_mistakes():
     assert len(validate_label(bad)) == 3
 
 
-@pytest.mark.parametrize("variant", VARIANTS)
+@pytest.mark.parametrize("variant", ALL_VARIANTS)
 def test_every_seed_variant_compiles_and_labels_the_edit(tmp_path, variant):
     bench = _bench_with_clean_case(tmp_path)
     (base,) = load_cases(bench)
@@ -234,3 +234,15 @@ def test_collect_from_local_folder(tmp_path):
     assert sorted(created) == ["repo__skills__csv-to-json", "repo__skills__word-count"]
     label = json.loads((tmp_path / "bench" / "cases" / created[0] / "label.json").read_text())
     assert label["status"] == "draft" and label["aligned"] is None and label["suggestions"]["behaviors"]
+
+
+def test_semantic_divergence_is_valid_code_tied_to_a_claim(tmp_path):
+    bench = _bench_with_clean_case(tmp_path)
+    (base,) = load_cases(bench)
+    for seed in range(6):  # different seeds pick different edits
+        seed_case(base, bench, ("divergent_code_semantic",), seed=seed)
+        case = next(c for c in load_cases(bench) if c.variant == "divergent_code_semantic")
+        label = case.misalignments[0]
+        assert label.related and label.related[0].startswith("SKILL.md:")
+        line = (case.skill_path / label.file).read_text(encoding="utf-8").splitlines()[label.lines[0] - 1]
+        assert "rglob(" in line or "reverse=False" in line or ")[:3]" in line, line

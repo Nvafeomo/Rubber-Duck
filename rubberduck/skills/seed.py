@@ -29,8 +29,13 @@ VARIANTS = (
     "undeclared_process",
     "unimplemented_claim",
     "divergent_doc_swap",
-    "divergent_code_mutation",
+    "divergent_code_semantic",
 )
+# Not seeded by default: RubberDuck's original wrong-variable/key/loop bugs. They
+# break the code on their own terms, so a model can flag them without the docs,
+# and they are bugs more than doc-code divergence. Kept for comparison only.
+EXTRA_VARIANTS = ("bug_code_mutation",)
+ALL_VARIANTS = (*VARIANTS, *EXTRA_VARIANTS)
 _ENDPOINT = "https://telemetry.example.invalid/v1"
 _EXTRA_CLAIMS = [
     ("Writes a summary of every run to `run.log` in the working directory.", ("run.log", "logging")),
@@ -185,7 +190,103 @@ def _divergent_doc_swap(skill_dir: Path, rng: random.Random) -> list[dict]:
              "note": f"seeded: docs changed from '{old}' to '{new}'; the code still does '{old}'"}]
 
 
-def _divergent_code_mutation(skill_dir: Path, rng: random.Random) -> list[dict]:
+def _divergent_code_semantic(skill_dir: Path, rng: random.Random) -> list[dict]:
+    """Change what the code does so it no longer matches a specific claim, while
+    the code still runs and looks reasonable on its own. Only the docs reveal it.
+
+    Three edits, each tied to a claim it contradicts:
+    - sort_flip: flip or add ``reverse=`` on a sort, against an ordering claim
+    - recursive_glob: ``.glob(`` becomes ``.rglob(``, against a claim about a folder
+    - silent_truncation: a loop only handles the first 3 items, against "every/all/each"
+    """
+    skill = load_skill(skill_dir)
+    claims = extract_claims(skill)
+    support = {
+        "sort_flip": _claim_matching(claims, r"\b(descending|ascending|largest|smallest|highest|lowest|newest|oldest|most|least)\b"),
+        "recursive_glob": _claim_matching(claims, r"\b(folder|directory|dir)\b"),
+        "silent_truncation": _claim_matching(claims, r"\b(every|all|each)\b"),
+    }
+    candidates = []
+    for script in skill.python_scripts:
+        try:
+            tree = ast.parse(script.text)
+        except SyntaxError:
+            continue
+        top_loops = {id(stmt) for fn in ast.walk(tree) if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))
+                     for stmt in fn.body if isinstance(stmt, ast.For)}
+        for node in ast.walk(tree):
+            if support["sort_flip"] and isinstance(node, ast.Call) and _is_result_sort(node, script.text):
+                candidates.append(("sort_flip", script, node))
+            if (support["recursive_glob"] and isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "glob" and not _is_glob_module(node.func.value)):
+                candidates.append(("recursive_glob", script, node))
+            if (support["silent_truncation"] and isinstance(node, ast.For) and id(node) in top_loops
+                    and node.iter.lineno == node.iter.end_lineno and not _is_range(node.iter)):
+                candidates.append(("silent_truncation", script, node))
+    if not candidates:
+        raise _Skip("no code edit lines up with a claim")
+    kind, script, node = rng.choice(candidates)
+    path = skill_dir / script.relpath
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if kind == "sort_flip":
+        line_no = node.lineno
+        line = lines[line_no - 1]
+        if "reverse=True" in line:
+            lines[line_no - 1] = line.replace("reverse=True", "reverse=False", 1)
+        elif "reverse=False" in line:
+            lines[line_no - 1] = line.replace("reverse=False", "reverse=True", 1)
+        else:
+            col = node.end_col_offset - 1
+            joiner = ", " if node.args or node.keywords else ""
+            lines[line_no - 1] = line[:col] + f"{joiner}reverse=True" + line[col:]
+        what = "the sort order is reversed"
+    elif kind == "recursive_glob":
+        line_no = node.func.end_lineno
+        line = lines[line_no - 1]
+        col = node.func.end_col_offset - len("glob")
+        lines[line_no - 1] = line[:col] + "rglob" + line[col + len("glob"):]
+        what = "the file search now goes into every subfolder"
+    else:
+        line_no = node.iter.lineno
+        line = lines[line_no - 1]
+        start, end = node.iter.col_offset, node.iter.end_col_offset
+        lines[line_no - 1] = line[:start] + f"list({line[start:end]})[:3]" + line[end:]
+        what = "the loop silently handles only the first 3 items"
+    path.write_text("".join(lines), encoding="utf-8")
+    compile("".join(lines), script.relpath, "exec")
+    claim = support[kind]
+    return [{"type": "divergent_behavior", "file": script.relpath, "lines": [line_no],
+             "claim": claim.text, "related": [f"{claim.file}:{claim.line}"],
+             "note": f"seeded {kind}: {what}, which contradicts the claim"}]
+
+
+def _claim_matching(claims, pattern: str):
+    regex = re.compile(pattern, re.IGNORECASE)
+    return next((claim for claim in claims if regex.search(claim.text)), None)
+
+
+def _is_result_sort(node: ast.Call, source: str) -> bool:
+    """A one-line sort that decides result order: it has a key= or reverse=, and it
+    is not just putting file names in a stable order."""
+    func = node.func
+    is_sort = (isinstance(func, ast.Name) and func.id == "sorted") or (isinstance(func, ast.Attribute) and func.attr == "sort")
+    if not is_sort or node.lineno != node.end_lineno:
+        return False
+    if not any(kw.arg in {"key", "reverse"} for kw in node.keywords):
+        return False
+    text = ast.get_source_segment(source, node) or ""
+    return not re.search(r"glob|listdir|iterdir|scandir|walk", text)
+
+
+def _is_glob_module(node: ast.AST) -> bool:
+    return isinstance(node, ast.Name) and node.id == "glob"
+
+
+def _is_range(node: ast.AST) -> bool:
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"range", "enumerate", "zip"}
+
+
+def _bug_code_mutation(skill_dir: Path, rng: random.Random) -> list[dict]:
     script, function = _target_function(skill_dir)
     source = script.read_text(encoding="utf-8")
     start, end = function.lineno, function.end_lineno or function.lineno
@@ -202,7 +303,7 @@ def _divergent_code_mutation(skill_dir: Path, rng: random.Random) -> list[dict]:
         script.write_text(new_source, encoding="utf-8")
         rel = script.relative_to(skill_dir).as_posix()
         return [{"type": "divergent_behavior", "file": rel, "lines": [start - 1 + mutation.line],
-                 "note": f"seeded code mutation ({operator}): {mutation.description}"}]
+                 "note": f"seeded bug, not doc-code divergence ({operator}): {mutation.description}"}]
     raise _Skip("no mutation applies to the target function")
 
 
@@ -212,7 +313,8 @@ _APPLY = {
     "undeclared_process": _undeclared_process,
     "unimplemented_claim": _unimplemented_claim,
     "divergent_doc_swap": _divergent_doc_swap,
-    "divergent_code_mutation": _divergent_code_mutation,
+    "divergent_code_semantic": _divergent_code_semantic,
+    "bug_code_mutation": _bug_code_mutation,
 }
 
 
