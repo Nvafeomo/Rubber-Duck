@@ -17,6 +17,7 @@ examples:
   rubberduck skills collect https://github.com/OWNER/REPO
   rubberduck skills status
   rubberduck skills seed
+  rubberduck skills suggest-divergence CASE_ID --model gemini-2.5-pro
   rubberduck skills eval --pause 4 --yes
 """
 
@@ -55,6 +56,14 @@ def register(commands) -> None:
     seed.add_argument("--variants", default=None, help="Comma-separated subset (default: all)")
     seed.add_argument("--seed", type=int, default=0)
     seed.set_defaults(func=_cmd_seed)
+
+    draft = sub.add_parser("suggest-divergence", help="Have a model draft divergent edits of a clean case for you to review")
+    draft.add_argument("case", help="Case id under benchmark/cases (must be verified aligned)")
+    draft.add_argument("--bench", type=Path, default=Path("benchmark"))
+    draft.add_argument("-n", type=int, default=4, help="How many edits to ask for")
+    draft.add_argument("--model", default=None, help="Use a different model than the one you audit with")
+    draft.add_argument("--dry-run", action="store_true", help="Print the prompt only")
+    draft.set_defaults(func=_cmd_suggest)
 
     evaluate = sub.add_parser("eval", help="Run methods over the benchmark and score them")
     evaluate.add_argument("--bench", type=Path, default=Path("benchmark"))
@@ -174,6 +183,34 @@ def _cmd_seed(args: argparse.Namespace) -> int:
             print(f"{case_id}: {outcome}")
             made += outcome in ALL_VARIANTS
     print(f"\n{made} seeded case(s) written.")
+    return 0
+
+
+def _cmd_suggest(args: argparse.Namespace) -> int:
+    from rubberduck.skills.benchmark import load_cases
+    from rubberduck.skills.suggest import build_suggest_prompt, suggest
+
+    case = next((c for c in load_cases(args.bench, include_drafts=True) if c.id == args.case), None)
+    if case is None:
+        print(f"No case {args.case!r} in {args.bench / 'cases'}", file=sys.stderr)
+        return 1
+    if not (case.aligned and case.status == "verified" and case.origin == "real"):
+        print("Only verified aligned real cases can be used. Label it first.", file=sys.stderr)
+        return 1
+    if args.dry_run:
+        print(build_suggest_prompt(case, args.n))
+        return 0
+    model = _model(args.model)
+    if model is False:
+        return 1
+    try:
+        results = suggest(case, args.bench, model, args.n)
+    except ReviewError as exc:
+        print(f"RubberDuck: {exc}", file=sys.stderr)
+        return 1
+    for name, status in results:
+        print(f"{name}: {status}")
+    print("\nOpen each new label.json, check the edit under \"review\", then set status to verified or delete the folder.")
     return 0
 
 

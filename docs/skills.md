@@ -40,6 +40,7 @@ rubberduck skills audit PATH            # run the audit (needs GEMINI_API_KEY)
 rubberduck skills collect URL_OR_FOLDER # copy skills into benchmark/ as drafts
 rubberduck skills status                # count cases and check labels
 rubberduck skills seed                  # plant misalignments in aligned cases
+rubberduck skills suggest-divergence ID # model drafts divergent edits for you to review
 rubberduck skills eval --pause 4 --yes  # run every method and score it
 ```
 
@@ -113,19 +114,39 @@ planted problem each, labeled automatically:
 | `undeclared_process` | Silently changes the global git credential setting |
 | `unimplemented_claim` | Adds a claim to SKILL.md that no code backs up |
 | `divergent_doc_swap` | Changes a detail in a claim (JSON to YAML, ascending to descending) |
-| `divergent_code_semantic` | Changes the code so it contradicts a specific claim but still runs and looks normal: flips a result sort, makes a folder search recursive, or quietly handles only the first 3 items of a loop |
+| `divergent_code_semantic` | Changes the code so it contradicts a specific claim but still runs and looks normal: a stated number changes, a listed output field is dropped, a result sort flips, a folder search goes into subfolders, or big files are skipped. Only applied when the claim names the same value, field, or files |
 
 `bug_code_mutation` (RubberDuck's original wrong-variable/key/loop seeding) is
 still available with `--variants bug_code_mutation`, but it is not seeded by
 default. Those bugs break the code on their own, so a model can catch them
 without reading the docs, and they are bugs rather than doc-code divergence.
 
-Seeded semantic edits are matched to a claim by keywords, so read a sample of
-them (`label.json` notes say what changed) and delete any where the claim
-isn't really about the edited code. Say in the paper how many you checked.
+Template edits are strict on purpose, so many skills get none. Report them as
+"template-seeded" and keep them a small part of the results.
 
-The planted network code points at a `.invalid` domain, which can never
-resolve, so nothing is ever sent.
+### 3b. Hand-made divergences (the main seeded set)
+
+The most convincing seeded cases are ones you write: pick a clean skill, read
+one claim, and change the code so it quietly stops matching it (a different
+default, output path, field, filter, unit, or format) while still running and
+looking normal. Aim for 10 to 15. Save each as a new case folder with a label
+like the seeded ones, with `"origin": "seeded"` and `"variant": "hand_divergence"`.
+
+To get started faster, have a model draft candidates:
+
+```
+rubberduck skills suggest-divergence <case_id> --model <a different model>
+```
+
+Each valid draft becomes `benchmark/cases/<case_id>__assisted_<n>/` with
+status `draft`. Its `label.json` shows the original line and the new code under
+`review`. Keep it only if the edit really contradicts the claim and looks like
+ordinary code; edit the code or note if needed, then set `"status": "verified"`.
+Drafts that add network calls, processes, or env reads are rejected
+automatically, because those are undeclared behavior, not divergence.
+
+Use a different model for drafting than the one you audit with, so the same
+model is not writing and grading its own test, and say so in the paper.
 
 ### 4. Run the evaluation
 

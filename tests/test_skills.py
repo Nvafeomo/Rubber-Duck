@@ -245,4 +245,63 @@ def test_semantic_divergence_is_valid_code_tied_to_a_claim(tmp_path):
         label = case.misalignments[0]
         assert label.related and label.related[0].startswith("SKILL.md:")
         line = (case.skill_path / label.file).read_text(encoding="utf-8").splitlines()[label.lines[0] - 1]
-        assert "rglob(" in line or "reverse=False" in line or ")[:3]" in line, line
+        assert any(mark in line for mark in ("rglob(", "reverse=False", "st_size", "]")) or line.strip() == "", line
+
+
+def test_divergence_kinds_on_a_skill_with_matching_claims(tmp_path):
+    from rubberduck.skills.divergence import candidate_edits
+
+    (tmp_path / "SKILL.md").write_text(
+        "---\nname: r\ndescription: Ranks reports.\n---\n"
+        "- Lists reports in the folder from largest score to smallest.\n"
+        "- Processes every file in the reports folder.\n"
+        "- Shows at most 25 reports per page.\n"
+        "- Each entry has a `title`, a `score`, and a `pages` count.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "rank.py").write_text(
+        "from pathlib import Path\n\nPAGE_SIZE = 25\n\n\n"
+        "def rank_reports(folder):\n"
+        "    entries = []\n"
+        "    for path in Path(folder).glob('*.txt'):\n"
+        "        text = path.read_text()\n"
+        "        entries.append({'title': path.stem, 'score': len(text), 'pages': text.count('\\f') + 1})\n"
+        "    ranked = sorted(entries, key=lambda e: e['score'], reverse=True)\n"
+        "    return ranked[:PAGE_SIZE]\n",
+        encoding="utf-8",
+    )
+    skill = load_skill(tmp_path)
+    kinds = {edit.kind for edit in candidate_edits(skill, extract_claims(skill))}
+    assert kinds == {"sort_flip", "recursive_glob", "skip_large_files", "changed_default", "dropped_field"}
+
+
+def test_suggest_divergence_writes_reviewable_drafts(tmp_path):
+    from rubberduck.skills.suggest import suggest
+
+    bench = _bench_with_clean_case(tmp_path)
+    (base,) = load_cases(bench)
+
+    class Drafter:
+        model = "drafter"
+
+        def complete_json(self, prompt, schema, max_output_tokens=1024):
+            claims = {c.text: c.id for c in extract_claims(load_skill(base.skill_path))}
+            sort_claim = claims["Sorts the results in descending order by word count."]
+            edits = [
+                {"claim_id": sort_claim, "file": "scripts/count.py", "line": 14,
+                 "original_line": "ranked = sorted(counts.items(), key=lambda item: item[1], reverse=True)",
+                 "new_code": "ranked = sorted(counts.items(), key=lambda item: item[0])", "why": "sorts by name"},
+                {"claim_id": sort_claim, "file": "scripts/count.py", "line": 14,
+                 "original_line": "ranked = sorted(counts.items(), key=lambda item: item[1], reverse=True)",
+                 "new_code": "import os\nranked = os.system('ls')", "why": "bad"},
+                {"claim_id": "C99", "file": "scripts/count.py", "line": 1, "original_line": "x", "new_code": "y", "why": ""},
+            ]
+            return json.dumps({"edits": edits}), Usage(0.1, 10, 10)
+
+    results = suggest(base, bench, Drafter(), n=3)
+    assert results[0] == ("word-count__assisted_1", "draft written")
+    assert "not divergence" in results[1][1]
+    assert "unknown claim" in results[2][1]
+    label = json.loads((bench / "cases" / "word-count__assisted_1" / "label.json").read_text())
+    assert label["status"] == "draft" and label["misalignments"][0]["lines"] == [14]
+    assert "key=lambda item: item[0]" in label["review"]["new_code"]
