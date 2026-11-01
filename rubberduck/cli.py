@@ -94,6 +94,10 @@ def _dispatch(argv: list[str] | None) -> int:
     fetch.add_argument("--dest", type=Path, default=Path("corpus") / "tinydb")
     fetch.set_defaults(func=_cmd_fetch)
 
+    from rubberduck.skills.cli import register as register_skills
+
+    register_skills(commands)
+
     args = parser.parse_args(argv)
     return args.func(args)
 

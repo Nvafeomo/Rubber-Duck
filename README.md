@@ -33,6 +33,12 @@ own mistake. This duck can read the code and ask you a question back.
 More detail is in [docs/architecture.md](docs/architecture.md),
 [docs/requirements.md](docs/requirements.md), and [docs/adr/](docs/adr/).
 
+## Skill audits
+
+The `skills` branch adds `rubberduck skills audit`, which checks whether an agent
+skill's code does what its SKILL.md and README say. It also has tools to build and
+score a benchmark. See [docs/skills.md](docs/skills.md).
+
 ## Repo layout
 
 ```

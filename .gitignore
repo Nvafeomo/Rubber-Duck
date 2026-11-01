@@ -27,3 +27,6 @@ report/
 *.tex
 .info/
 ~$*
+
+# Skill repos cloned by "rubberduck skills collect"
+.cache/

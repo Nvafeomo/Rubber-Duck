@@ -102,6 +102,11 @@ class GeminiReviewer:
             self._client = genai.Client(api_key=key)
 
     def complete(self, prompt: str) -> Completion:
+        text, usage = self.complete_json(prompt, ReviewSchema, max_output_tokens=1024)
+        return Completion(concerns=parse_concerns(text), usage=usage)
+
+    def complete_json(self, prompt: str, schema: object, max_output_tokens: int = 1024) -> tuple[str, Usage]:
+        """One structured call with retries and fallbacks. Returns the raw JSON text and usage."""
         models = (self.model, *self.fallbacks)
         last: TransientReviewError | None = None
         for index, model in enumerate(models):
@@ -109,7 +114,7 @@ class GeminiReviewer:
                 _notice(f"switching to fallback model {model}.")
             for attempt in range(len(self._retry_delays) + 1):
                 try:
-                    return self._complete_with(model, prompt)
+                    return self._complete_with(model, prompt, schema, max_output_tokens)
                 except TransientReviewError as exc:
                     last = exc
                     if attempt < len(self._retry_delays):
@@ -118,17 +123,17 @@ class GeminiReviewer:
                         self._sleep(delay)
         raise ReviewError(
             f"Gemini stayed unavailable after retries ({', '.join(models)}). "
-            f"Wait a minute and run git commit again. Last error: {last}"
+            f"Wait a minute and try again. Last error: {last}"
         )
 
-    def _complete_with(self, model: str, prompt: str) -> Completion:
+    def _complete_with(self, model: str, prompt: str, schema: object, max_output_tokens: int) -> tuple[str, Usage]:
         from google.genai import types
 
         config_kwargs: dict = {
             "temperature": 0,
-            "max_output_tokens": 1024,
+            "max_output_tokens": max_output_tokens,
             "response_mime_type": "application/json",
-            "response_schema": ReviewSchema,
+            "response_schema": schema,
         }
         afc = getattr(types, "AutomaticFunctionCallingConfig", None)
         if afc is not None:
@@ -148,7 +153,7 @@ class GeminiReviewer:
             prompt_tokens=_meta_int(usage_meta, "prompt_token_count"),
             output_tokens=_meta_int(usage_meta, "candidates_token_count"),
         )
-        return Completion(concerns=parse_concerns(text), usage=usage)
+        return text, usage
 
     def _generate(self, model: str, prompt: str, config_kwargs: dict):
         from google.genai import types
