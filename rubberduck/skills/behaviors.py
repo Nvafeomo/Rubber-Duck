@@ -122,23 +122,24 @@ def analyze_skill(skill: Skill) -> StaticFacts:
     local_modules = _local_modules(skill)
     tainted_sinks: set[tuple[str, int]] = set()
 
+    # Python is analysed in rounds: a function that returns secret-derived data
+    # (e.g. ``return dict(os.environ)``) becomes a source for its callers, even in
+    # other files. Rounds stop when no new such function is found.
+    source_functions: set[str] = set()
+    for _ in range(4):
+        rounds = _python_pass(skill, local_modules, source_functions)
+        if rounds["returns_source"] <= source_functions:
+            break
+        source_functions |= rounds["returns_source"]
+    facts.behaviors.extend(rounds["behaviors"])
+    facts.functions.update(rounds["functions"])
+    facts.parse_errors.extend(rounds["parse_errors"])
+    for caller, callees in rounds["graph"].items():
+        graph.setdefault(caller, set()).update(callees)
+    entries.extend(rounds["entries"])
+    tainted_sinks.update(rounds["tainted_sinks"])
     for script in skill.scripts:
-        if script.language == "python":
-            try:
-                tree = ast.parse(script.text)
-            except SyntaxError as exc:
-                facts.parse_errors.append(f"{script.relpath}: {exc.msg} (line {exc.lineno})")
-                facts.behaviors.extend(_scan_lines(script.text, script.relpath, 0))
-                continue
-            visitor = _PythonVisitor(script.relpath, script.text, local_modules)
-            visitor.visit(tree)
-            facts.behaviors.extend(visitor.behaviors)
-            facts.functions[script.relpath] = visitor.function_summaries
-            for caller, callees in visitor.calls.items():
-                graph.setdefault(caller, set()).update(callees)
-            entries.append(f"{script.relpath}::<module>")
-            tainted_sinks.update(visitor.tainted_sinks)
-        else:
+        if script.language != "python":
             facts.behaviors.extend(_scan_lines(script.text, script.relpath, 0))
             entries.append(f"{script.relpath}::<module>")
 
@@ -168,8 +169,49 @@ def analyze_skill(skill: Skill) -> StaticFacts:
                 best = chain
         facts.chains[index] = best or [behavior.node]
 
-    facts.flows = _composite_flows(facts.behaviors, paths, tainted_sinks)
+    facts.flows = _composite_flows(facts.behaviors, paths, tainted_sinks, graph)
+    for config in skill.configs:
+        facts.behaviors.extend(_scan_config(config.text, config.relpath))
+    facts.behaviors = _dedupe(facts.behaviors)
     return facts
+
+
+def _python_pass(skill: Skill, local_modules: dict[str, str], source_functions: set[str]) -> dict:
+    out = {"behaviors": [], "functions": {}, "graph": {}, "entries": [], "tainted_sinks": set(),
+           "returns_source": set(), "parse_errors": []}
+    for script in skill.python_scripts:
+        try:
+            tree = ast.parse(script.text)
+        except SyntaxError as exc:
+            out["parse_errors"].append(f"{script.relpath}: {exc.msg} (line {exc.lineno})")
+            out["behaviors"].extend(_scan_lines(script.text, script.relpath, 0))
+            continue
+        visitor = _PythonVisitor(script.relpath, script.text, local_modules, source_functions=source_functions)
+        visitor.visit(tree)
+        out["behaviors"].extend(visitor.behaviors)
+        out["functions"][script.relpath] = visitor.function_summaries
+        for caller, callees in visitor.calls.items():
+            out["graph"].setdefault(caller, set()).update(callees)
+        out["entries"].append(f"{script.relpath}::<module>")
+        out["tainted_sinks"].update(visitor.tainted_sinks)
+        out["returns_source"].update(visitor.returns_source)
+    return out
+
+
+_CONFIG_URL = re.compile(r"https?://[^\s\"'<>]+")
+_CONFIG_SECRET = re.compile(r"(api[_-]?key|token|secret|password)\s*[\"']?\s*[:=]\s*[\"']?[A-Za-z0-9_\-]{12,}", re.I)
+
+
+def _scan_config(text: str, relpath: str) -> list[Behavior]:
+    """Config files can name endpoints or hold secrets the docs never mention."""
+    found = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        url = _CONFIG_URL.search(raw)
+        if url and not re.search(r"(schema|json-schema|example\.com|localhost|127\.0\.0\.1)", url.group(0)):
+            found.append(Behavior("network", f"endpoint {url.group(0)[:50]}", relpath, number, "<config>", raw.strip()[:120]))
+        if _CONFIG_SECRET.search(raw):
+            found.append(Behavior("credential_access", "hardcoded secret", relpath, number, "<config>", raw.strip()[:60]))
+    return found
 
 
 def format_facts(facts: StaticFacts, max_behaviors: int = 40, max_flows: int = 10, max_functions: int = 60) -> str:
@@ -206,7 +248,7 @@ def format_facts(facts: StaticFacts, max_behaviors: int = 40, max_flows: int = 1
 
 class _PythonVisitor(ast.NodeVisitor):
     def __init__(self, relpath: str, source: str, local_modules: dict[str, str], line_offset: int = 0,
-                 module_name: str = "<module>") -> None:
+                 module_name: str = "<module>", source_functions: set[str] | None = None) -> None:
         self.relpath = relpath
         self.lines = source.splitlines()
         self.local_modules = local_modules
@@ -221,6 +263,8 @@ class _PythonVisitor(ast.NodeVisitor):
         self.tainted_sinks: set[tuple[str, int]] = set()
         self._taint: list[set[str]] = [set()]
         self._docstrings: set[int] = set()
+        self.source_functions = source_functions or set()
+        self.returns_source: set[str] = set()
 
     # -- scope ---------------------------------------------------------
     @property
@@ -291,8 +335,23 @@ class _PythonVisitor(ast.NodeVisitor):
                     if isinstance(name, ast.Name):
                         self._taint[-1].add(name.id)
 
+    def visit_Return(self, node: ast.Return) -> None:
+        self.generic_visit(node)
+        if self.scope and node.value is not None and (self._is_source_expr(node.value) or self._uses_taint(node.value)):
+            self.returns_source.add(self.node_id)
+
+    def _call_target(self, func: ast.AST) -> str | None:
+        name = self._resolve(func)
+        if name and name.startswith("@") and "::" in name:
+            return name[1:]
+        if isinstance(func, ast.Name) and func.id in self.local_defs:
+            return f"{self.relpath}::{func.id}"
+        return None
+
     def _is_source_expr(self, expr: ast.AST) -> bool:
         for item in ast.walk(expr):
+            if isinstance(item, ast.Call) and self._call_target(item.func) in self.source_functions:
+                return True
             if isinstance(item, (ast.Call, ast.Attribute, ast.Subscript)):
                 category = self._category_for_expr(item)
                 if category in SOURCE_CATEGORIES:
@@ -311,7 +370,8 @@ class _PythonVisitor(ast.NodeVisitor):
         category = self._category_for_call(node, name)
         if category:
             self._record(category, name or _attr_name(node.func), node.lineno)
-            if category in SINK_CATEGORIES and any(self._uses_taint(arg) for arg in [*node.args, *[kw.value for kw in node.keywords]]):
+            arguments = [*node.args, *[kw.value for kw in node.keywords]]
+            if category in SINK_CATEGORIES and any(self._uses_taint(a) or self._is_source_expr(a) for a in arguments):
                 self.tainted_sinks.add((self.relpath, node.lineno + self.offset))
         self._record_call_edge(node.func, name)
         self.generic_visit(node)
@@ -480,7 +540,12 @@ def _shortest_paths(graph: dict[str, set[str]], start: str) -> dict[str, list[st
 
 
 def _composite_flows(behaviors: list[Behavior], paths: dict[str, dict[str, list[str]]],
-                     tainted_sinks: set[tuple[str, int]]) -> list[CompositeFlow]:
+                     tainted_sinks: set[tuple[str, int]], graph: dict[str, set[str]] | None = None) -> list[CompositeFlow]:
+    """Pair sources and sinks reachable from one entry point. A pair is "dataflow"
+    when the sink's arguments carry secret-derived data and the source is in the
+    sink's function or in a function the sink's function calls."""
+    graph = graph or {}
+    below: dict[str, dict[str, list[str]]] = {}
     flows: list[CompositeFlow] = []
     seen: set[tuple[int, int]] = set()
     sources = [(i, b) for i, b in enumerate(behaviors) if b.category in SOURCE_CATEGORIES and b.category != "file_read"]
@@ -497,7 +562,10 @@ def _composite_flows(behaviors: list[Behavior], paths: dict[str, dict[str, list[
                 if source.category == "file_read" and not same_function:
                     continue  # reading files and using the network separately is too common to flag
                 seen.add((oi, si))
-                evidence = "dataflow" if (sink.file, sink.line) in tainted_sinks and same_function else "reachable"
+                if sink.node not in below:
+                    below[sink.node] = _shortest_paths(graph, sink.node)
+                feeds_sink = same_function or source.node in below[sink.node]
+                evidence = "dataflow" if (sink.file, sink.line) in tainted_sinks and feeds_sink else "reachable"
                 flows.append(CompositeFlow(source=source, sink=sink, entry=entry, evidence=evidence))
     flows.sort(key=lambda flow: (flow.evidence != "dataflow", flow.sink.file, flow.sink.line))
     return flows

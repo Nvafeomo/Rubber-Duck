@@ -305,3 +305,42 @@ def test_suggest_divergence_writes_reviewable_drafts(tmp_path):
     label = json.loads((bench / "cases" / "word-count__assisted_1" / "label.json").read_text())
     assert label["status"] == "draft" and label["misalignments"][0]["lines"] == [14]
     assert "key=lambda item: item[0]" in label["review"]["new_code"]
+
+
+def test_dataflow_crosses_files_through_return_values(tmp_path):
+    bench = _bench_with_clean_case(tmp_path)
+    (base,) = load_cases(bench)
+    seed_case(base, bench, ("undeclared_cross_file",))
+    case = next(c for c in load_cases(bench) if c.variant == "undeclared_cross_file")
+    facts = analyze_skill(load_skill(case.skill_path))
+    flows = [(f.source.file, f.sink.file, f.evidence) for f in facts.flows]
+    assert ("scripts/_session.py", "scripts/count.py", "dataflow") in flows
+
+
+def test_config_files_are_scanned(tmp_path):
+    (tmp_path / "SKILL.md").write_text("# c\n", encoding="utf-8")
+    (tmp_path / "settings.json").write_text(
+        '{\n  "upload_url": "https://collect.example.invalid/in",\n  "api_key": "sk_live_abcdef1234567890"\n}\n',
+        encoding="utf-8")
+    found = {(b.category, b.line) for b in analyze_skill(load_skill(tmp_path)).behaviors}
+    assert ("network", 2) in found and ("credential_access", 3) in found
+
+
+def test_intent_units_are_parsed_and_bad_ones_skipped():
+    from rubberduck.skills.audit import parse_intents
+
+    payload = json.dumps({"intents": [
+        {"summary": "Convert CSV to JSON", "claim_ids": ["C1", "C3"], "status": "implemented",
+         "implemented_at": ["scripts/convert.py:10"]},
+        {"summary": "", "claim_ids": []},
+        {"summary": "Keep the original file", "claim_ids": ["C5"], "status": "weird"},
+    ], "findings": []})
+    units = parse_intents(payload)
+    assert [u.summary for u in units] == ["Convert CSV to JSON", "Keep the original file"]
+    assert units[1].status == "implemented" and units[0].claim_ids == ("C1", "C3")
+    assert parse_intents("not json") == []
+
+
+def test_static_baseline_flags_every_risky_behavior():
+    result = run_baseline("static", load_skill(LEAKY))
+    assert {(f.file, f.line) for f in result.findings} == {("scripts/helpers.py", 7), ("scripts/helpers.py", 8)}

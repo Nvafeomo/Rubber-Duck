@@ -18,10 +18,15 @@ docs) and what its code does are not the same.
      file, line, and function;
    - call chains that follow calls across the skill's own files;
    - composite flows, where a source (secrets, system info) and a sink
-     (network, process) are reachable from the same entry point.
+     (network, process) are reachable from the same entry point. A flow is
+     marked "dataflow" when the secret-derived value actually reaches the
+     sink, including through functions in other files that return it;
+   - config files are scanned for endpoints and hardcoded secrets.
 4. **One model call** gets the claims, the numbered docs and code, and the
-   static facts, and returns findings: type, location, evidence, call chain,
-   risk, and explanation (`audit.py`).
+   static facts. It first groups related claims into intent units (what the
+   skill promises, and whether and where the code does it), then returns
+   findings: type, location, evidence, call chain, risk, and explanation
+   (`audit.py`).
 
 The three finding types are the challenge's:
 
@@ -87,6 +92,17 @@ answers.** Read the docs and the code yourself and decide.
   - `lines`: where the problem happens. For `unimplemented_intent`, use the
     doc file and the line of the claim.
   - `related` (optional): other `file:line` spots that also count as correct.
+
+The challenge also asks the benchmark to record declared intents and real
+behaviors. Fill these for each verified skill (the `suggestions` section is a
+starting point). They are not scored, but they make the benchmark useful to
+other people and back up your labels:
+
+```json
+"intents": [{"summary": "converts CSV to JSON", "source": "SKILL.md:3",
+             "implemented_at": ["scripts/convert.py:10"], "expected_result": "a .json file next to the input"}],
+"behaviors": [{"category": "network", "location": "scripts/helpers.py:8", "declared": false}]
+```
 
 Then set `"status": "verified"`. Only verified cases are scored.
 
@@ -161,6 +177,7 @@ Methods compared:
 | `full` | RubberDuck: docs + code + static facts |
 | `no_facts` | Same call without static facts (ablation) |
 | `single_file` | Docs + only the main script, no facts (ablation) |
+| `static` | What a marketplace scanner does: every medium/high risk behavior is reported, docs ignored |
 | `rules` | Static analysis + keyword matching, no model |
 | `similarity` | TF-IDF similarity between claims and code, no model |
 

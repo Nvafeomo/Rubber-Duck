@@ -10,7 +10,9 @@ label.json fields:
     id, origin ("real" or "seeded"), status ("draft" or "verified"),
     source {repo, path, commit, license}, base_case (seeded only),
     aligned (true when the skill has no misalignment),
-    misalignments [{type, file, lines, claim, note}],
+    misalignments [{type, file, lines, claim, note, related}],
+    intents [{summary, source, implemented_at, expected_result}]   (optional, the main things the skill promises)
+    behaviors [{category, location, declared}]                    (optional, the effects the code really has)
     suggestions {claims, behaviors}   (pre-filled hints for labeling, never scored)
 
 Only cases with status "verified" are scored unless --include-drafts is given.
@@ -114,6 +116,8 @@ def draft_label(case_id: str, skill_dir: Path, source: dict | None = None) -> di
         "source": source or {},
         "aligned": None,
         "misalignments": [],
+        "intents": [],
+        "behaviors": [],
         "labeler_notes": "",
         "suggestions": {
             "claims": [f"{c.file}:{c.line} {c.text}" for c in extract_claims(skill)],

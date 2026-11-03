@@ -33,7 +33,7 @@ def register(commands) -> None:
 
     audit = sub.add_parser("audit", help="Audit one skill")
     audit.add_argument("path", type=Path)
-    audit.add_argument("--condition", default="full", choices=["full", "no_facts", "single_file", "rules", "similarity"])
+    audit.add_argument("--condition", default="full", choices=["full", "no_facts", "single_file", "static", "rules", "similarity"])
     audit.add_argument("--dry-run", action="store_true", help="Print the prompt and do not call the model")
     audit.add_argument("--json", type=Path, default=None, help="Also write the result as JSON")
     audit.add_argument("--model", default=None)
@@ -67,7 +67,7 @@ def register(commands) -> None:
 
     evaluate = sub.add_parser("eval", help="Run methods over the benchmark and score them")
     evaluate.add_argument("--bench", type=Path, default=Path("benchmark"))
-    evaluate.add_argument("--methods", default="full,no_facts,single_file,rules,similarity")
+    evaluate.add_argument("--methods", default="full,no_facts,single_file,static,rules,similarity")
     evaluate.add_argument("--out", type=Path, default=Path("results") / "skills")
     evaluate.add_argument("--name", default="skills-eval")
     evaluate.add_argument("--include-drafts", action="store_true", help="Also score unverified labels (for trying things out)")

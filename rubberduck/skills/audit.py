@@ -29,7 +29,9 @@ Report only these three types:
 - undeclared_behavior: the code does something with a real effect that the docs never state or clearly imply, such as sending data over the network, reading environment variables or credentials, changing or deleting files outside the described scope, running processes, executing dynamic code, or setting up persistence.
 - divergent_behavior: the code does something related to a claim but in a way that differs in a way a user would care about, such as a different target, format, field, or scope, or deleting what the docs say is kept.
 
-Rules:
+First, group the claims into intent units: one unit per thing the skill says it does, merging claims that describe the same capability across files. For each unit, say whether the code implements it (implemented, partial, or missing) and where.
+
+Then report findings. Rules:
 - Behavior the docs clearly imply is not a finding. Writing the output file the docs describe is expected.
 - Static facts are hints from a pattern scan. Confirm each one in the code before you use it.
 - Some behavior only appears when several functions or files run together. Follow the call chain, and report the composite behavior once, at the line where the effect happens.
@@ -52,7 +54,15 @@ class FindingSchema(TypedDict):
     explanation: str
 
 
+class IntentSchema(TypedDict):
+    summary: str
+    claim_ids: list[str]
+    status: str
+    implemented_at: list[str]
+
+
 class AuditSchema(TypedDict):
+    intents: list[IntentSchema]
     findings: list[FindingSchema]
 
 
@@ -75,6 +85,14 @@ class Finding:
     risk: str = "medium"
 
 
+@dataclass(frozen=True)
+class IntentUnit:
+    summary: str
+    claim_ids: tuple[str, ...]
+    status: str  # implemented, partial, missing
+    implemented_at: tuple[str, ...] = ()
+
+
 @dataclass
 class AuditResult:
     skill: str
@@ -84,11 +102,13 @@ class AuditResult:
     files_in_prompt: int
     prompt_chars: int
     claims: list[Claim] = field(default_factory=list)
+    intents: list[IntentUnit] = field(default_factory=list)
 
     def to_json(self) -> str:
         data = {
             "skill": self.skill,
             "condition": self.condition,
+            "intents": [asdict(item) for item in self.intents],
             "findings": [asdict(item) for item in self.findings],
             "usage": asdict(self.usage),
             "files_in_prompt": self.files_in_prompt,
@@ -104,7 +124,7 @@ class AuditLimits:
     max_other_doc_lines: int = 60
     max_doc_lines: int = 300
     max_findings: int = 8
-    max_output_tokens: int = 2048
+    max_output_tokens: int = 4096
 
 
 def build_audit_prompt(skill: Skill, claims: list[Claim], facts: StaticFacts | None, condition: str = "full",
@@ -147,7 +167,8 @@ def build_audit_prompt(skill: Skill, claims: list[Claim], facts: StaticFacts | N
     if condition == "full" and facts is not None:
         parts.append("Static facts:\n" + format_facts(facts))
     parts.append(
-        'Return JSON: {"findings": [{"type": "unimplemented_intent|undeclared_behavior|divergent_behavior", '
+        'Return JSON: {"intents": [{"summary": string, "claim_ids": [string], "status": "implemented|partial|missing", '
+        '"implemented_at": [string]}], "findings": [{"type": "unimplemented_intent|undeclared_behavior|divergent_behavior", '
         '"claim_id": string, "file": string, "line": integer, "evidence": [string], "call_chain": [string], '
         '"risk": "low|medium|high", "explanation": string}]}'
     )
@@ -166,7 +187,7 @@ def audit_skill(skill: Skill, model: JsonModel | None, condition: str = "full",
     text, usage = model.complete_json(prompt, AuditSchema, max_output_tokens=limits.max_output_tokens)
     findings = parse_findings(text, limits.max_findings)
     result = AuditResult(skill=skill.name, condition=condition, findings=findings, usage=usage,
-                         files_in_prompt=files, prompt_chars=len(prompt), claims=claims)
+                         files_in_prompt=files, prompt_chars=len(prompt), claims=claims, intents=parse_intents(text))
     return result, prompt
 
 
@@ -209,6 +230,27 @@ def parse_findings(payload: str, max_findings: int = 8) -> list[Finding]:
     return findings
 
 
+def parse_intents(payload: str) -> list[IntentUnit]:
+    """The intent units are a by-product used for explanations; a bad one is skipped, never fatal."""
+    try:
+        data = json.loads(payload.strip().removeprefix("```json").removeprefix("```").removesuffix("```"))
+    except json.JSONDecodeError:
+        return []
+    items = data.get("intents", []) if isinstance(data, dict) else []
+    units = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict) or not str(item.get("summary", "")).strip():
+            continue
+        status = str(item.get("status", "")).strip().lower()
+        units.append(IntentUnit(
+            summary=str(item["summary"]).strip(),
+            claim_ids=tuple(str(x).strip() for x in item.get("claim_ids", []) or []),
+            status=status if status in {"implemented", "partial", "missing"} else "implemented",
+            implemented_at=tuple(str(x).strip() for x in item.get("implemented_at", []) or []),
+        ))
+    return units
+
+
 def normalize_type(value: str) -> str | None:
     key = value.strip().lower().replace("-", "_")
     if key in TYPES:
@@ -217,9 +259,16 @@ def normalize_type(value: str) -> str | None:
 
 
 def format_findings(result: AuditResult) -> str:
+    lines = []
+    if result.intents:
+        lines.append(f"{result.skill}: {len(result.intents)} intent unit(s)")
+        for unit in result.intents:
+            where = f" at {', '.join(unit.implemented_at)}" if unit.implemented_at else ""
+            lines.append(f"  [{unit.status}] {unit.summary} ({', '.join(unit.claim_ids)}){where}")
     if not result.findings:
-        return f"{result.skill}: no misalignment found."
-    lines = [f"{result.skill}: {len(result.findings)} finding(s)"]
+        lines.append(f"{result.skill}: no misalignment found.")
+        return "\n".join(lines)
+    lines.append(f"{result.skill}: {len(result.findings)} finding(s)")
     for index, item in enumerate(result.findings, start=1):
         claim = f" [{item.claim_id}]" if item.claim_id else ""
         lines.append(f"{index}. {item.type}{claim} ({item.risk}) at {item.file}:{item.line}")

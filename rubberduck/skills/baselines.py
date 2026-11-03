@@ -1,5 +1,7 @@
 """Non-LLM baselines the challenge asks to compare against.
 
+* ``static``: what a marketplace scanner does. Every medium or high risk behavior
+  is reported as undeclared, without reading the docs.
 * ``rules``: static analysis plus keyword checks. A medium or high risk behavior
   whose category is never mentioned in the docs is undeclared; a claim whose
   content words never show up in the code is unimplemented.
@@ -25,7 +27,7 @@ from rubberduck.skills.behaviors import analyze_skill
 from rubberduck.skills.claims import extract_claims
 from rubberduck.skills.loader import Skill
 
-BASELINES = ("rules", "similarity")
+BASELINES = ("static", "rules", "similarity")
 _STOP = set("""a an the and or of to in on for with by from as at is are be this that it its into your you use used
 when what which will can may should must not no all any each every if then than so also only more most such via using
 file files skill skills user users run runs script scripts code""".split())
@@ -45,7 +47,9 @@ _MIN_RISK = {"medium", "high"}
 
 def run_baseline(name: str, skill: Skill) -> AuditResult:
     started = time.perf_counter()
-    if name == "rules":
+    if name == "static":
+        findings = _static(skill)
+    elif name == "rules":
         findings = _rules(skill)
     elif name == "similarity":
         findings = _similarity(skill)
@@ -54,6 +58,12 @@ def run_baseline(name: str, skill: Skill) -> AuditResult:
     usage = Usage(latency_s=time.perf_counter() - started, prompt_tokens=0, output_tokens=0)
     return AuditResult(skill=skill.name, condition=name, findings=findings, usage=usage,
                        files_in_prompt=len(skill.docs) + len(skill.scripts), prompt_chars=0)
+
+
+def _static(skill: Skill) -> list[Finding]:
+    return [Finding(type="undeclared_behavior", file=b.file, line=b.line, risk=b.risk,
+                    explanation=f"{b.category} ({b.api})")
+            for b in analyze_skill(skill).behaviors if b.risk in _MIN_RISK]
 
 
 def _rules(skill: Skill) -> list[Finding]:
